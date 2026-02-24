@@ -45,7 +45,7 @@ def _time_it(fn, iterations: int = 1, warmup: int = 0) -> float:
 
 # ── SDK benchmark definitions ──────────────────────────────────
 
-SDK_CODECS = ["parquet", "arrow_ipc", "feather"]
+SDK_CODECS = ["parquet", "arrow_ipc", "feather", "vortex"]
 
 SDK_USE_CASES = [
     {

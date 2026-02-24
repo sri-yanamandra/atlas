@@ -1736,7 +1736,7 @@ async def atlas_ui():
                                 <span>Parquet — Best compression (default)</span>
                                 <span>Arrow IPC — Fastest I/O</span>
                                 <span>Feather — Zero-copy reads</span>
-                                <span style="opacity:0.6">Vortex — Coming soon</span>
+                                <span>Vortex — Best of both</span>
                             </div>
                         </div>
                         <div style="background:var(--purple,#a371f7);color:#fff;padding:12px 16px">
@@ -1772,9 +1772,9 @@ async def atlas_ui():
                             <div style="font-size:18px;font-weight:600;color:var(--green)">Fastest I/O</div>
                             <div style="font-size:11px;color:var(--muted)">Zero-copy reads</div>
                         </div>
-                        <div style="background:var(--bg);padding:16px;border-radius:8px;text-align:center;border:2px dashed var(--muted);opacity:0.6">
+                        <div style="background:var(--bg);padding:16px;border-radius:8px;text-align:center">
                             <div style="font-size:11px;color:var(--muted);margin-bottom:4px">VORTEX</div>
-                            <div style="font-size:18px;font-weight:600;color:var(--muted)">Coming Soon</div>
+                            <div style="font-size:18px;font-weight:600;color:var(--purple,#a371f7)">Best of both</div>
                             <div style="font-size:11px;color:var(--muted)">Adaptive encoding</div>
                         </div>
                     </div>
