@@ -1,0 +1,125 @@
+{
+  "universes": [
+    {
+      "universe_id": "all_patients",
+      "name": "All Patients Universe",
+      "description": "Complete patient universe across all data sources - 10M+ patients",
+      "kohort_files": [
+        "atlas_bench_medicare_65plus.kohort",
+        "atlas_bench_commercial_female.kohort",
+        "atlas_bench_emergency_visits.kohort",
+        "atlas_bench_2024_inpatient.kohort",
+        "atlas_bench_cardiology_procs.kohort",
+        "atlas_bench_medicaid_pediatric.kohort",
+        "atlas_bench_texas_all_claims.kohort"
+      ],
+      "operation": "union",
+      "estimated_cardinality": 10500000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    },
+    {
+      "universe_id": "enterprise_universe",
+      "name": "Enterprise Full Access Universe",
+      "description": "Complete data lake access for enterprise tier customers",
+      "kohort_files": [
+        "atlas_bench_medicare_65plus.kohort",
+        "atlas_bench_commercial_female.kohort",
+        "atlas_bench_emergency_visits.kohort",
+        "atlas_bench_2024_inpatient.kohort",
+        "atlas_bench_cardiology_procs.kohort",
+        "atlas_bench_medicaid_pediatric.kohort",
+        "atlas_bench_texas_all_claims.kohort",
+        "atlas_f.kohort",
+        "atlas_m.kohort",
+        "atlas_tx.kohort"
+      ],
+      "operation": "union",
+      "estimated_cardinality": 10800000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    },
+    {
+      "universe_id": "medicare_universe",
+      "name": "Medicare 65+ Universe",
+      "description": "Medicare patients aged 65 and older - 3M+ patients",
+      "kohort_files": ["atlas_bench_medicare_65plus.kohort"],
+      "operation": "single",
+      "estimated_cardinality": 3200000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    },
+    {
+      "universe_id": "commercial_female_universe",
+      "name": "Commercial Female Universe",
+      "description": "Female patients with commercial insurance - 3.5M+ patients",
+      "kohort_files": ["atlas_bench_commercial_female.kohort"],
+      "operation": "single",
+      "estimated_cardinality": 3500000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    },
+    {
+      "universe_id": "emergency_universe",
+      "name": "Emergency Medicine Universe",
+      "description": "Patients with emergency department visits - 2M+ encounters",
+      "kohort_files": ["atlas_bench_emergency_visits.kohort"],
+      "operation": "single",
+      "estimated_cardinality": 2100000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    },
+    {
+      "universe_id": "inpatient_universe",
+      "name": "2024 Inpatient Universe",
+      "description": "Inpatient admissions for 2024 - 1M+ hospitalizations",
+      "kohort_files": ["atlas_bench_2024_inpatient.kohort"],
+      "operation": "single",
+      "estimated_cardinality": 1100000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    },
+    {
+      "universe_id": "cardiology_universe",
+      "name": "Cardiology Procedures Universe",
+      "description": "Patients with cardiology procedures - 1.2M+ patients",
+      "kohort_files": ["atlas_bench_cardiology_procs.kohort"],
+      "operation": "single",
+      "estimated_cardinality": 1200000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    },
+    {
+      "universe_id": "pediatric_medicaid_universe",
+      "name": "Pediatric Medicaid Universe",
+      "description": "Medicaid pediatric population - 700K+ children",
+      "kohort_files": ["atlas_bench_medicaid_pediatric.kohort"],
+      "operation": "single",
+      "estimated_cardinality": 720000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    },
+    {
+      "universe_id": "texas_comprehensive_universe",
+      "name": "Texas Comprehensive Universe",
+      "description": "All Texas patients across payers - 1.5M+ patients",
+      "kohort_files": ["atlas_bench_texas_all_claims.kohort", "atlas_tx.kohort"],
+      "operation": "union",
+      "estimated_cardinality": 1550000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    },
+    {
+      "universe_id": "tx_universe",
+      "name": "Texas Small Universe",
+      "description": "Texas patients - small cohort",
+      "kohort_files": ["atlas_tx.kohort"],
+      "operation": "single",
+      "estimated_cardinality": 5000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    },
+    {
+      "universe_id": "f_universe",
+      "name": "Female Small Universe",
+      "description": "Female patients - small cohort",
+      "kohort_files": ["atlas_f.kohort"],
+      "operation": "single",
+      "estimated_cardinality": 15000,
+      "created_at": "2026-02-12T12:00:00.000000"
+    }
+  ],
+  "default_universe": "all_patients",
+  "version": "1.0",
+  "last_updated": "2026-02-12T18:00:00.000000"
+}

@@ -1,0 +1,23 @@
+{
+  "policy_id": "womens_health_institute",
+  "name": "Women's Health Research Institute",
+  "description": "Academic research - access to female patient cohort",
+  "filter_type": "kohort",
+  "kohort_files": ["atlas_f.kohort"],
+  "universe_operation": "union",
+  "bitmap_cohort": "female",
+  "predicate": null,
+  "masked_columns": null,
+  "mask_value": "***MASKED***",
+  "max_rows": null,
+  "universe_ids": ["all_patients", "f_universe"],
+  "user_roles": ["researcher", "analyst"],
+  "allowed_sources": ["kwazii", "carillon"],
+  "source_bitset": 3,
+  "created_at": "2026-02-12T12:00:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 15,
+  "customer_tier": "academic",
+  "patient_count": 1748
+}

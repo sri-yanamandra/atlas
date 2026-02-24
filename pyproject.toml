@@ -1,0 +1,51 @@
+[project]
+name = "kohort"
+version = "0.1.0"
+description = "Patient cohort container format — Rust library, Python SDK, and Snowflake connector"
+requires-python = ">=3.11, <3.14"
+dependencies = [
+    "cohort-sdk",
+    "komodo>=3.0.5",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    "pyyaml>=6.0",
+    "vortex-data>=0.58.0",
+    "sentence-transformers>=5.2.2",
+    "duckdb>=1.4.4",
+    "lancedb>=0.29.2",
+    "pyiceberg[duckdb,pyarrow]>=0.11.0",
+    "pyroaring>=1.0.3",
+    "watchdog>=6.0.0",
+    "streamlit>=1.54.0",
+    "polars>=1.38.1",
+]
+
+[project.scripts]
+cohort = "cohort_sdk.cli:main"
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.10.8",
+    "pytest>=9.0",
+]
+
+[tool.uv.sources]
+cohort-sdk = { path = "cohort-sdk", editable = true }
+
+[tool.uv.workspace]
+members = [
+    "haus_demo_project",
+]
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+manifest-path = "cohort-sdk/Cargo.toml"
+python-source = "cohort-sdk/python"
+module-name = "cohort_sdk._cohort_rs"
+features = ["pyo3/extension-module"]
+
+[tool.pytest.ini_options]
+testpaths = ["cohort-sdk/tests"]

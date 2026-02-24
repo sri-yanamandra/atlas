@@ -1,0 +1,50 @@
+{
+  "source": "diag_i2.cohort",
+  "timestamp": "2026-02-11T23:43:38.768910",
+  "results": [
+    {
+      "codec": "parquet",
+      "rows": 100000,
+      "write_ms": 98.5,
+      "file_size": 3125266,
+      "read_ms": 45.3,
+      "valid": true,
+      "inspect_ms": 0.051,
+      "sql_count_ms": 0.5,
+      "sql_filter_ms": 41.0
+    },
+    {
+      "codec": "arrow_ipc",
+      "rows": 100000,
+      "write_ms": 14.8,
+      "file_size": 56635195,
+      "read_ms": 10.1,
+      "valid": true,
+      "inspect_ms": 0.0567,
+      "sql_count_ms": null,
+      "sql_filter_ms": null
+    },
+    {
+      "codec": "feather",
+      "rows": 100000,
+      "write_ms": 49.6,
+      "file_size": 9672824,
+      "read_ms": 26.3,
+      "valid": true,
+      "inspect_ms": 0.0537,
+      "sql_count_ms": null,
+      "sql_filter_ms": null
+    },
+    {
+      "codec": "vortex",
+      "rows": 100000,
+      "write_ms": 113.1,
+      "file_size": 5327961,
+      "read_ms": 32.4,
+      "valid": true,
+      "inspect_ms": 0.0578,
+      "sql_count_ms": null,
+      "sql_filter_ms": null
+    }
+  ]
+}

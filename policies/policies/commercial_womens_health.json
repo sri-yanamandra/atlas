@@ -1,0 +1,24 @@
+{
+  "policy_id": "commercial_womens_health",
+  "name": "Commercial Women's Health Initiative",
+  "description": "Full access to commercial female population - largest cohort with 3M+ patients",
+  "filter_type": "kohort",
+  "kohort_files": [
+    "atlas_bench_commercial_female.kohort"
+  ],
+  "universe_operation": "union",
+  "bitmap_cohort": null,
+  "predicate": null,
+  "masked_columns": ["PATIENT_YOB_DATE_UNCERTIFIED_TOP_CODED"],
+  "mask_value": "***MASKED***",
+  "max_rows": null,
+  "universe_ids": ["commercial_female_universe"],
+  "user_roles": ["analyst", "researcher", "data_scientist", "clinical_researcher"],
+  "allowed_sources": ["kwazii", "carillon", "bellweather", "rowley", "nimbus"],
+  "source_bitset": 31,
+  "created_at": "2026-02-12T15:00:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 10,
+  "customer_tier": "enterprise"
+}

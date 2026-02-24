@@ -1,0 +1,33 @@
+{
+  "policy_id": "atlas_enterprise_full",
+  "name": "Atlas Enterprise - Full Data Lake Access",
+  "description": "Complete access to all 10M+ patient records across all cohorts - for enterprise tier only",
+  "filter_type": "kohort",
+  "kohort_files": [
+    "atlas_bench_medicare_65plus.kohort",
+    "atlas_bench_commercial_female.kohort",
+    "atlas_bench_emergency_visits.kohort",
+    "atlas_bench_2024_inpatient.kohort",
+    "atlas_bench_cardiology_procs.kohort",
+    "atlas_bench_medicaid_pediatric.kohort",
+    "atlas_bench_texas_all_claims.kohort",
+    "atlas_f.kohort",
+    "atlas_m.kohort",
+    "atlas_tx.kohort"
+  ],
+  "universe_operation": "union",
+  "bitmap_cohort": null,
+  "predicate": null,
+  "masked_columns": [],
+  "mask_value": "***MASKED***",
+  "max_rows": null,
+  "universe_ids": ["all_patients", "enterprise_universe"],
+  "user_roles": ["admin", "data_architect", "chief_data_officer"],
+  "allowed_sources": ["kwazii", "carillon", "bellweather", "rowley", "nimbus"],
+  "source_bitset": 31,
+  "created_at": "2026-02-12T18:00:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 100,
+  "customer_tier": "enterprise_plus"
+}

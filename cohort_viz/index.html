@@ -1,0 +1,2764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>.cohort visualizer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;
+  --muted:#8b949e;--accent:#58a6ff;--green:#3fb950;
+  --red:#f85149;--yellow:#d29922;--card:#1c2128;--card-hover:#22272e;
+}
+html,body{height:100%;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+
+/* Header */
+header{padding:12px 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);position:relative}
+header .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+header .meta{margin-left:auto;font-size:12px;color:var(--muted)}
+
+/* Diff view */
+
+/* Cmd+K palette */
+.cmdk-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;display:none}
+.cmdk-backdrop.open{display:flex;align-items:flex-start;justify-content:center;padding-top:min(20vh,160px)}
+.cmdk{width:420px;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 16px 48px rgba(0,0,0,.6);overflow:hidden}
+.cmdk input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);
+  padding:14px 16px;color:var(--text);font:15px -apple-system,system-ui,sans-serif;outline:none}
+.cmdk input::placeholder{color:var(--muted)}
+.cmdk-list{max-height:280px;overflow-y:auto;padding:6px}
+.cmdk-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;
+  font-size:14px;color:var(--muted);transition:none}
+.cmdk-item.active{background:rgba(88,166,255,.12);color:var(--text)}
+.cmdk-item:hover{background:rgba(88,166,255,.08);color:var(--text)}
+.cmdk-item .cmdk-icon{font-size:16px;width:22px;text-align:center;flex-shrink:0}
+.cmdk-item .cmdk-label{flex:1}
+.cmdk-item .cmdk-hint{font-size:11px;color:var(--border)}
+.cmdk-empty{padding:20px 16px;text-align:center;color:var(--muted);font-size:13px}
+.kbd-hint{font-size:11px;color:var(--border);margin-left:8px;padding:1px 6px;
+  border:1px solid var(--border);border-radius:4px;cursor:pointer;user-select:none}
+.kbd-hint:hover{color:var(--muted);border-color:var(--muted)}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:280px 1fr;height:calc(100vh - 57px);overflow:hidden}
+
+/* Sidebar */
+.sidebar{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.sidebar-head h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.sidebar-head .n{font-size:12px;color:var(--muted);margin-left:auto;background:var(--surface);padding:1px 7px;border-radius:10px}
+.file-search{padding:8px 8px 0}
+.file-search input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:7px 10px;color:var(--text);font:13px -apple-system,system-ui,sans-serif;outline:none}
+.file-search input:focus{border-color:var(--accent)}
+.file-search input::placeholder{color:#2d333b}
+.file-list{flex:1;overflow-y:auto;padding:8px}
+.file-list::-webkit-scrollbar{width:4px}
+.file-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.file-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;
+  cursor:pointer;margin-bottom:6px;transition:border-color .1s}
+.file-card:hover{background:var(--card-hover);border-color:#444c56}
+.file-card.sel{border-color:var(--accent)}
+.file-card .name{font-size:13px;font-weight:500;line-height:1.4;display:flex;align-items:center;gap:6px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.file-card .name .icon{color:var(--accent);font-size:12px}
+.file-card .cohort-name{font-size:11px;color:var(--accent);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-card .sub{font-size:12px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.file-card .row-badge{background:rgba(63,185,80,.15);color:var(--green);font-size:10px;font-weight:600;
+  padding:1px 6px;border-radius:4px;white-space:nowrap}
+.file-card .sel-summary{font-size:10px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Main */
+.main{display:flex;flex-direction:column;overflow:hidden}
+.main-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--border);font-size:14px}
+
+/* Inspect Panel */
+.inspect{flex:1;overflow-y:auto;padding:24px 28px}
+.inspect::-webkit-scrollbar{width:5px}
+.inspect::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+.inspect-head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.inspect-head h2{font-size:20px;font-weight:600;flex:1}
+.tag{font-size:10px;padding:2px 8px;border-radius:4px;text-transform:uppercase;font-weight:600;letter-spacing:.3px}
+.tag.v{background:rgba(88,166,255,.15);color:var(--accent)}
+.tag.size{background:rgba(63,185,80,.15);color:var(--green)}
+
+.section{margin-bottom:20px}
+.section h3{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);
+  margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+
+.kv{display:grid;grid-template-columns:140px 1fr;gap:4px 12px;font-size:13px;line-height:1.6}
+.kv .k{color:var(--muted)}.kv .v{color:var(--text)}
+
+/* Selectors */
+.sel-list{display:flex;flex-wrap:wrap;gap:6px}
+.sel-chip{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;line-height:1.4}
+.sel-chip .field{color:var(--accent);font-weight:600}
+.sel-chip .op{color:var(--muted);margin:0 4px}
+.sel-chip .vals{color:var(--text)}
+
+/* Revision history */
+.rev-list{font-size:13px}
+.rev-item{padding:6px 0;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:8px}
+.rev-item:last-child{border-bottom:none}
+.rev-item .rn{color:var(--accent);font-weight:600;flex-shrink:0}
+.rev-item .msg{flex:1}.rev-item .author{color:var(--muted);font-size:12px}
+.rev-item .size{color:var(--green);font-size:12px}
+
+/* Revision chart */
+.rev-chart{margin-bottom:16px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px 16px 8px}
+.rev-chart svg{display:block;width:100%;overflow:visible}
+.rev-chart-tooltip{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  padding:8px 10px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);white-space:nowrap}
+.rev-chart-tooltip .tt-rev{color:var(--accent);font-weight:600}
+.rev-chart-tooltip .tt-size{color:var(--green);font-weight:600}
+.rev-chart-tooltip .tt-msg{color:var(--text);margin-top:2px}
+.rev-chart-tooltip .tt-author{color:var(--muted);font-size:11px}
+
+/* Datasets */
+.mod-tabs{display:flex;gap:4px;margin-bottom:12px}
+.mod-tab{background:var(--card);border:1px solid var(--border);padding:6px 14px;border-radius:6px;
+  font-size:12px;cursor:pointer;font-weight:500;color:var(--muted)}
+.mod-tab:hover{color:var(--text);border-color:#444c56}
+.mod-tab.sel{color:var(--text);border-color:var(--accent);background:rgba(88,166,255,.1)}
+
+/* Data table */
+.data-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px;max-height:400px;overflow-y:auto}
+.data-wrap::-webkit-scrollbar{width:5px;height:5px}
+.data-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.data-table{width:100%;border-collapse:collapse;font-size:12px;font-family:'SF Mono',Consolas,monospace}
+.data-table th{position:sticky;top:0;background:var(--surface);padding:8px 12px;text-align:left;
+  font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);
+  border-bottom:1px solid var(--border);white-space:nowrap}
+.data-table td{padding:6px 12px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:250px;
+  overflow:hidden;text-overflow:ellipsis}
+.data-table tbody tr{content-visibility:auto;contain-intrinsic-height:31px}
+.data-table tr:hover td{background:var(--card-hover)}
+.data-table .null{color:var(--border);font-style:italic}
+.data-info{font-size:12px;color:var(--muted);margin-top:8px}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--border);
+  padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;z-index:200;pointer-events:none}
+.toast.show{opacity:1}
+
+/* Backend tag */
+.backend-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(210,153,34,.15);
+  color:var(--yellow);font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600}
+
+/* Column list */
+.col-list{display:flex;flex-wrap:wrap;gap:4px}
+.col-chip{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;
+  font-family:'SF Mono',Consolas,monospace;color:var(--muted)}
+
+/* Loading spinner */
+.loading{display:inline-block;width:14px;height:14px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Overlap view */
+.overlap-view{flex:1;overflow-y:auto;padding:24px 28px}
+.overlap-view::-webkit-scrollbar{width:5px}
+.overlap-view::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.overlap-head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.overlap-head h2{font-size:20px;font-weight:600;flex:1}
+.overlap-head .back-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:5px 12px;
+  border-radius:6px;font-size:12px;cursor:pointer}
+.overlap-head .back-btn:hover{color:var(--text);border-color:#444c56}
+
+.overlap-config{display:flex;gap:12px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap}
+.overlap-config .field{display:flex;flex-direction:column;gap:4px}
+.overlap-config .field label{font-size:12px;color:var(--muted)}
+.overlap-config .field select,.overlap-config .field input{background:var(--card);border:1px solid var(--border);
+  border-radius:6px;padding:6px 10px;color:var(--text);font:inherit;font-size:13px;outline:none}
+.overlap-config .field select:focus,.overlap-config .field input:focus{border-color:var(--accent)}
+
+.overlap-files{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px}
+.overlap-files .chip{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:5px 10px;
+  font-size:12px;cursor:pointer;transition:all .1s;user-select:none}
+.overlap-files .chip:hover{border-color:#444c56}
+.overlap-files .chip.on{border-color:var(--accent);background:rgba(88,166,255,.1);color:var(--text)}
+
+/* Square Venn */
+.venn-container{display:flex;justify-content:center;margin:20px 0}
+.venn-container svg{max-width:100%}
+.venn-label{font-size:13px;font-weight:600;fill:var(--text)}
+.venn-count{font-size:18px;font-weight:700;fill:var(--text)}
+.venn-count-small{font-size:13px;font-weight:600;fill:var(--text)}
+.venn-name{font-size:11px;fill:var(--muted)}
+
+/* Pairwise matrix table */
+.matrix-section{margin-top:28px}
+.matrix-table{border-collapse:separate;border-spacing:3px;margin:0 auto}
+.matrix-table th{font-size:11px;font-weight:600;padding:4px 8px;max-width:100px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.matrix-table th.col-hdr{text-align:center;padding-bottom:6px}
+.matrix-table th.row-hdr{text-align:right;padding-right:10px}
+.matrix-cell{width:68px;height:56px;border-radius:8px;text-align:center;vertical-align:middle;
+  position:relative;cursor:default;transition:opacity .15s}
+.matrix-cell:hover{opacity:.85}
+.matrix-cell .val{font-size:14px;font-weight:700;display:block;line-height:1}
+.matrix-cell .pct{font-size:10px;opacity:.65;display:block;margin-top:2px}
+
+/* Overlap selectors panel */
+.ov-selectors{margin:16px 0 8px;display:flex;flex-direction:column;gap:10px}
+.ov-sel-row{display:flex;align-items:flex-start;gap:8px;font-size:12px}
+.ov-sel-row .ov-sel-name{flex-shrink:0;font-weight:600;min-width:0}
+.ov-sel-row .ov-sel-chips{display:flex;flex-wrap:wrap;gap:4px}
+.ov-sel-row .ov-sel-chip{background:var(--card);border:1px solid var(--border);border-radius:5px;
+  padding:3px 7px;font-size:11px;line-height:1.3}
+.ov-sel-row .ov-sel-chip .field{color:var(--accent);font-weight:600}
+.ov-sel-row .ov-sel-chip .op{color:var(--muted);margin:0 3px}
+.ov-sel-row .ov-sel-chip .vals{color:var(--text)}
+.ov-sel-no{color:var(--border);font-style:italic;font-size:11px}
+
+/* UpSet bars */
+.upset-section{margin-top:24px}
+.upset-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.upset-dots{display:flex;gap:4px;flex-shrink:0;width:120px;justify-content:flex-end}
+.upset-dot{width:10px;height:10px;border-radius:50%;background:var(--border)}
+.upset-dot.on{background:var(--accent)}
+.upset-bar-wrap{flex:1;height:22px;position:relative}
+.upset-bar{height:100%;border-radius:3px;min-width:2px;transition:width .3s}
+.upset-bar-label{position:absolute;left:8px;top:3px;font-size:11px;font-weight:600;color:var(--text);pointer-events:none}
+.upset-bar-label.outside{left:auto;position:relative;margin-left:6px;white-space:nowrap}
+
+/* Legend */
+.overlap-legend{display:flex;gap:14px;margin:12px 0 4px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.overlap-legend .leg{display:flex;align-items:center;gap:6px}
+.overlap-legend .swatch{width:10px;height:10px;border-radius:2px}
+
+/* Query view */
+.query-view{flex:1;overflow-y:auto;padding:0;display:flex;flex-direction:column}
+.query-view::-webkit-scrollbar{width:5px}
+.query-view::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* Editor pane */
+.query-editor-pane{background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.query-toolbar{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--border)}
+.query-toolbar h2{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.query-toolbar h2 .q-icon{color:var(--accent);font-size:16px;line-height:1}
+.query-toolbar .spacer{flex:1}
+.query-run{background:var(--green);color:#0d1117;border:none;padding:6px 16px;border-radius:6px;
+  font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;
+  text-transform:uppercase;letter-spacing:.5px}
+.query-run:hover{filter:brightness(1.15);transform:translateY(-1px);box-shadow:0 4px 12px rgba(63,185,80,.3)}
+.query-run:active{transform:translateY(0)}
+.query-run:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none;filter:none}
+.query-run .play{display:inline-block;width:0;height:0;border:5px solid transparent;border-left:7px solid #0d1117;margin-right:-2px}
+@keyframes runpulse{0%,100%{box-shadow:0 0 0 0 rgba(63,185,80,.4)}50%{box-shadow:0 0 0 8px rgba(63,185,80,0)}}
+.query-run.running{animation:runpulse 1s infinite;background:var(--yellow);color:#0d1117}
+.query-shortcut{font-size:10px;color:var(--border);background:var(--card);padding:2px 6px;border-radius:4px;
+  border:1px solid var(--border);font-family:'SF Mono',Consolas,monospace}
+
+/* Schema strip */
+.query-schema{display:flex;align-items:center;gap:6px;padding:8px 20px;border-bottom:1px solid var(--border);
+  overflow-x:auto;flex-shrink:0}
+.query-schema::-webkit-scrollbar{height:3px}
+.query-schema::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.query-schema .schema-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--border);
+  font-weight:600;flex-shrink:0;margin-right:4px}
+.query-schema .table-chip{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:3px 10px;
+  font-size:11px;cursor:pointer;font-family:'SF Mono',Consolas,monospace;color:var(--accent);
+  transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:5px;flex-shrink:0}
+.query-schema .table-chip:hover{border-color:var(--accent);background:rgba(88,166,255,.08);
+  box-shadow:0 0 8px rgba(88,166,255,.15);transform:translateY(-1px)}
+.query-schema .table-chip .t-icon{font-size:10px;opacity:.5}
+
+/* Editor textarea */
+.query-editor-wrap{position:relative}
+.query-editor{width:100%;min-height:140px;max-height:320px;background:var(--bg);border:none;
+  padding:16px 20px;color:var(--text);font:13px/1.6 'SF Mono',Consolas,monospace;
+  resize:vertical;outline:none;tab-size:2;display:block}
+.query-editor::placeholder{color:#2d333b}
+.query-editor:focus{background:#0a0e14}
+.query-editor-wrap::after{content:'SQL';position:absolute;top:8px;right:12px;font-size:9px;
+  text-transform:uppercase;letter-spacing:1px;color:var(--border);font-weight:600;pointer-events:none}
+
+/* Results pane */
+.query-results{flex:1;overflow-y:auto;padding:0;display:flex;flex-direction:column}
+.query-results::-webkit-scrollbar{width:5px}
+.query-results::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+.query-status{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);
+  background:var(--surface);flex-shrink:0}
+.query-status .stat{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.query-status .stat .sv{color:var(--green);font-weight:700}
+.query-status .stat .sv.time{color:var(--accent)}
+.query-status .stat-sep{width:1px;height:14px;background:var(--border)}
+.query-status .speed-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+.query-result-data{flex:1;overflow:auto;padding:0}
+.query-result-data .data-wrap{border:none;border-radius:0;max-height:none}
+.query-result-data .data-table td{font-size:11px}
+.query-result-data .data-table th{background:var(--bg);font-size:10px}
+.query-result-data .data-table tr:nth-child(even) td{background:rgba(22,27,34,.5)}
+.query-result-data .data-table .row-num{color:var(--border);font-size:10px;text-align:right;
+  padding-right:8px;user-select:none;width:40px;border-right:1px solid var(--border)}
+
+.query-error{background:rgba(248,81,73,.06);border-left:3px solid var(--red);padding:16px 20px;
+  color:var(--red);font-size:12px;font-family:'SF Mono',Consolas,monospace;white-space:pre-wrap;
+  margin:0}
+
+.query-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;
+  color:var(--border);gap:8px;padding:40px}
+.query-empty .q-empty-icon{font-size:32px;opacity:.3}
+.query-empty .q-empty-text{font-size:13px}
+
+/* Query history */
+.query-history{display:flex;gap:6px;padding:8px 20px;border-top:1px solid var(--border);
+  overflow-x:auto;flex-shrink:0;background:var(--surface)}
+.query-history::-webkit-scrollbar{height:3px}
+.query-history::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.query-history .hist-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--border);
+  font-weight:600;flex-shrink:0;display:flex;align-items:center;margin-right:4px}
+.query-history .hist-chip{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:3px 8px;
+  font-size:10px;cursor:pointer;font-family:'SF Mono',Consolas,monospace;color:var(--muted);
+  white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;transition:all .1s;flex-shrink:0}
+.query-history .hist-chip:hover{color:var(--text);border-color:#444c56}
+
+/* Benchmark queries strip */
+.query-benchmarks{display:flex;gap:6px;padding:8px 20px;border-bottom:1px solid var(--border);
+  overflow-x:auto;flex-shrink:0;background:var(--surface)}
+.query-benchmarks::-webkit-scrollbar{height:3px}
+.query-benchmarks::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.query-benchmarks .bench-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--border);
+  font-weight:600;flex-shrink:0;display:flex;align-items:center;margin-right:4px}
+.query-benchmarks .bench-chip{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:3px 8px;
+  font-size:10px;cursor:pointer;color:var(--yellow);white-space:nowrap;transition:all .1s;flex-shrink:0;font-weight:500}
+.query-benchmarks .bench-chip:hover{color:var(--text);border-color:var(--yellow);background:rgba(210,153,34,.08)}
+
+/* Stats view */
+.stats-view{flex:1;overflow-y:auto;padding:24px 28px}
+.stats-view::-webkit-scrollbar{width:5px}
+.stats-view::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.stats-head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.stats-head h2{font-size:20px;font-weight:600;flex:1}
+.stats-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
+.stat-card .value{font-size:28px;font-weight:700;line-height:1.2;color:var(--text)}
+.stat-card .label{font-size:12px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.3px}
+.stats-charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.chart-panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
+.chart-panel .chart-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:12px}
+.chart-panel svg{display:block;width:100%}
+.stats-files{margin-top:24px}
+.stats-files h3{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);
+  margin-bottom:12px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.stats-file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.stats-file-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .1s}
+.stats-file-card:hover{border-color:#444c56}
+.stats-file-card .sfc-name{font-size:13px;font-weight:600;color:var(--accent);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stats-file-card .sfc-cohort{font-size:11px;color:var(--muted);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stats-file-card .sfc-stats{display:flex;gap:10px;font-size:11px;color:var(--muted)}
+.stats-file-card .sfc-stats span{color:var(--green);font-weight:600}
+
+/* Lineage view */
+.lineage-view{flex:1;overflow:auto;padding:24px 28px}
+.lineage-view::-webkit-scrollbar{width:5px}
+.lineage-view::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.lineage-head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.lineage-head h2{font-size:20px;font-weight:600;flex:1}
+.dag-container{position:relative;display:flex;justify-content:center}
+.dag-container svg{display:block}
+.dag-node{cursor:pointer;transition:opacity .15s}
+.dag-node:hover{opacity:.8}
+.dag-tooltip{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  padding:8px 12px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);white-space:nowrap;max-width:300px}
+.dag-legend{display:flex;gap:16px;justify-content:center;margin-top:16px;font-size:12px;color:var(--muted)}
+.dag-legend .dleg{display:flex;align-items:center;gap:6px}
+.dag-legend .dswatch{width:12px;height:12px;border-radius:3px}
+
+/* Benchmark view */
+.bench-view{flex:1;overflow-y:auto;padding:24px 28px}
+.bench-view::-webkit-scrollbar{width:5px}
+.bench-view::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.bench-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.bench-head h2{font-size:20px;font-weight:600;flex:1}
+.bench-run-btn{background:var(--green);color:#0d1117;border:none;padding:8px 20px;border-radius:6px;
+  font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.5px}
+.bench-run-btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.bench-run-btn:disabled{opacity:.4;cursor:default;transform:none;filter:none}
+.bench-category{margin:24px 0;padding:16px 20px;background:var(--card);border:1px solid var(--border);border-radius:10px}
+.bench-category-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.bench-category-icon{font-size:18px;width:28px;text-align:center}
+.bench-category-title{font-size:14px;font-weight:600;flex:1}
+.bench-category-best{font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(63,185,80,.15);color:var(--green);text-transform:uppercase;letter-spacing:.5px}
+.bench-bars{display:flex;flex-direction:column;gap:8px}
+.bench-bar-row{display:flex;align-items:center;gap:12px}
+.bench-bar-label{width:260px;text-align:right;font-size:12px;color:var(--muted);flex-shrink:0;display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.bench-bar-format{font-size:9px;padding:2px 5px;border-radius:3px;background:var(--bg);border:1px solid var(--border);text-transform:uppercase}
+.bench-bar-track{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;height:32px;overflow:hidden;position:relative}
+.bench-bar-fill{height:100%;border-radius:5px;transition:width .8s ease-out;display:flex;align-items:center;padding:0 10px;min-width:0}
+.bench-bar-fill.cohort{background:linear-gradient(90deg,rgba(88,166,255,.3),rgba(88,166,255,.5))}
+.bench-bar-fill.comparison{background:linear-gradient(90deg,rgba(210,153,34,.3),rgba(210,153,34,.5))}
+.bench-bar-fill.winner{background:linear-gradient(90deg,rgba(63,185,80,.3),rgba(63,185,80,.5))}
+.bench-bar-time{font-size:11px;font-weight:700;color:var(--text);white-space:nowrap}
+.bench-bar-detail{font-size:10px;color:var(--border);margin-left:272px;margin-top:-4px}
+.bench-bar-rec{font-size:10px;color:var(--green);margin-left:272px;margin-top:2px;font-style:italic}
+.bench-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:24px 0}
+.bench-summary-card{padding:16px;background:var(--card);border:1px solid var(--border);border-radius:8px;text-align:center}
+.bench-summary-card .value{font-size:24px;font-weight:700;color:var(--accent)}
+.bench-summary-card .label{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+.bench-recommendations{margin:24px 0;padding:20px;background:linear-gradient(135deg,rgba(88,166,255,.08),rgba(63,185,80,.08));border:1px solid var(--border);border-radius:10px}
+.bench-recommendations h3{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.bench-rec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.bench-rec-item{padding:10px 12px;background:var(--card);border-radius:6px;font-size:12px}
+.bench-rec-item .use-case{font-weight:600;color:var(--text);margin-bottom:4px}
+.bench-rec-item .format{color:var(--green)}
+.bench-rec-item .reason{color:var(--muted);font-size:11px}
+
+/* Similarity view */
+.sim-view{flex:1;overflow-y:auto;padding:24px 28px}
+.sim-view::-webkit-scrollbar{width:5px}
+.sim-view::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.sim-head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.sim-head h2{font-size:20px;font-weight:600;flex:1;display:flex;align-items:center;gap:10px}
+.sim-head .sim-icon{font-size:24px}
+.sim-status{font-size:11px;padding:3px 10px;border-radius:4px;background:rgba(63,185,80,.15);color:var(--green)}
+.sim-status.loading{background:rgba(210,153,34,.15);color:var(--yellow)}
+.sim-controls{display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.sim-mode-tabs{display:flex;gap:4px}
+.sim-mode-tab{background:var(--card);border:1px solid var(--border);padding:8px 16px;border-radius:6px;
+  font-size:12px;cursor:pointer;font-weight:500;color:var(--muted);transition:all .1s}
+.sim-mode-tab:hover{color:var(--text);border-color:#444c56}
+.sim-mode-tab.sel{color:var(--text);border-color:var(--accent);background:rgba(88,166,255,.1)}
+.sim-search-box{flex:1;min-width:280px;display:flex;flex-direction:column;gap:6px}
+.sim-search-box label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.sim-search-box input,.sim-search-box select{background:var(--card);border:1px solid var(--border);
+  border-radius:6px;padding:10px 14px;color:var(--text);font:13px -apple-system,system-ui,sans-serif;outline:none;width:100%}
+.sim-search-box input:focus,.sim-search-box select:focus{border-color:var(--accent)}
+.sim-search-box input::placeholder{color:var(--border)}
+.sim-search-btn{background:var(--accent);color:#0d1117;border:none;padding:10px 24px;border-radius:6px;
+  font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.5px;
+  align-self:flex-end}
+.sim-search-btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.sim-search-btn:disabled{opacity:.4;cursor:default;transform:none;filter:none}
+.sim-filters{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.sim-filter{display:flex;flex-direction:column;gap:4px}
+.sim-filter label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--border)}
+.sim-filter select{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;
+  color:var(--text);font:12px -apple-system,system-ui,sans-serif;outline:none;min-width:100px}
+.sim-filter select:focus{border-color:var(--accent)}
+.sim-results-head{display:flex;align-items:center;gap:12px;margin:20px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.sim-results-head h3{font-size:14px;font-weight:600;flex:1}
+.sim-results-head .sim-meta{font-size:11px;color:var(--muted)}
+.sim-results-head .sim-meta .highlight{color:var(--green);font-weight:600}
+.sim-result-card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+  margin-bottom:8px;cursor:pointer;transition:all .15s;overflow:hidden}
+.sim-result-card:hover{border-color:#444c56;background:var(--card-hover)}
+.sim-result-card.expanded{border-color:var(--accent)}
+.sim-result-header{display:flex;gap:16px;align-items:flex-start;padding:14px 16px}
+.sim-result-rank{width:32px;height:32px;background:rgba(88,166,255,.15);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--accent);flex-shrink:0}
+.sim-result-main{flex:1;min-width:0}
+.sim-result-top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.sim-result-id{font-size:14px;font-weight:600;color:var(--accent)}
+.sim-result-state{font-size:10px;padding:2px 6px;background:rgba(63,185,80,.12);color:var(--green);
+  border-radius:4px;font-weight:600}
+.sim-result-score{font-size:12px;font-weight:700;color:var(--text)}
+.sim-result-score .pct{color:var(--green)}
+.sim-result-diag{font-size:11px;color:var(--muted);line-height:1.5;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;max-width:100%}
+.sim-result-actions{display:flex;gap:6px;flex-shrink:0}
+.sim-result-btn{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:5px 10px;
+  font-size:10px;color:var(--muted);cursor:pointer;transition:all .1s}
+.sim-result-btn:hover{color:var(--text);border-color:#444c56}
+.sim-result-btn.primary{background:rgba(88,166,255,.1);border-color:var(--accent);color:var(--accent)}
+.sim-detail{border-top:1px solid var(--border);padding:14px 16px;display:none}
+.sim-result-card.expanded .sim-detail{display:block}
+.sim-detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.sim-detail-field{font-size:11px}
+.sim-detail-field .label{color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-size:9px;margin-bottom:2px}
+.sim-detail-field .value{color:var(--text);word-break:break-all}
+.sim-detail-field .value.empty{color:var(--border);font-style:italic}
+.sim-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;
+  color:var(--border);text-align:center}
+.sim-empty-icon{font-size:48px;margin-bottom:12px;opacity:.4}
+.sim-empty-text{font-size:14px;margin-bottom:4px}
+.sim-empty-hint{font-size:12px;color:var(--muted)}
+.sim-cohort-select{margin-bottom:16px}
+.sim-cohort-select label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:6px}
+.sim-cohort-select select{background:var(--card);border:1px solid var(--border);border-radius:6px;
+  padding:8px 12px;color:var(--text);font:13px -apple-system,system-ui,sans-serif;outline:none;min-width:200px}
+.sim-cohort-select select:focus{border-color:var(--accent)}
+/* Duck toggle */
+.duck-toggle{display:flex;align-items:center;gap:6px;font-size:20px;cursor:pointer;
+  opacity:.35;transition:all .25s;user-select:none;padding:2px 6px;border-radius:8px}
+.duck-toggle:hover{opacity:.65}
+.duck-toggle.active{opacity:1;filter:drop-shadow(0 0 6px var(--green)) drop-shadow(0 0 12px var(--green))}
+.duck-toggle .duck-label{font-size:11px;color:var(--muted);transition:color .25s}
+.duck-toggle.active .duck-label{color:var(--green)}
+
+/* Autocomplete dropdown */
+.ac-dropdown{position:absolute;z-index:100;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);
+  min-width:180px;padding:4px;display:none;font-family:'SF Mono',Consolas,monospace}
+.ac-dropdown.open{display:block}
+.ac-dropdown::-webkit-scrollbar{width:4px}
+.ac-dropdown::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ac-item{padding:5px 10px;font-size:12px;cursor:pointer;border-radius:5px;display:flex;align-items:center;gap:8px;color:var(--text)}
+.ac-item:hover{background:rgba(88,166,255,.08)}
+.ac-item.active{background:rgba(88,166,255,.15);color:var(--accent)}
+.ac-item .ac-type{font-size:9px;color:var(--muted);margin-left:auto;text-transform:uppercase}
+</style>
+</head>
+<body>
+<header>
+  <div class="dot"></div>
+  <h1 style="font-size:16px;font-weight:600;letter-spacing:-.3px">.cohort</h1>
+  <span class="meta" id="meta"></span>
+  <span class="kbd-hint" onclick="openCmdK()" title="Quick search">&#8984;K</span>
+  <span class="kbd-hint" onclick="openCmdL()" title="Lakehouse" style="margin-left:8px">&#8984;L</span>
+</header>
+
+<div class="cmdk-backdrop" id="cmdk-backdrop">
+  <div class="cmdk" id="cmdk">
+    <input type="text" id="cmdk-input" placeholder="Search views..." autocomplete="off" spellcheck="false">
+    <div class="cmdk-list" id="cmdk-list"></div>
+  </div>
+</div>
+
+<div class="cmdk-backdrop" id="cmdl-backdrop">
+  <div class="cmdk" id="cmdl">
+    <input type="text" id="cmdl-input" placeholder="Lakehouse actions..." autocomplete="off" spellcheck="false">
+    <div class="cmdk-list" id="cmdl-list"></div>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <h2>Files</h2>
+      <span class="n" id="file-count">0</span>
+    </div>
+    <div class="file-search"><input type="text" id="file-search" placeholder="Search files..." oninput="filterFiles()"></div>
+    <div class="file-list" id="file-list"></div>
+  </div>
+  <div class="main" id="main">
+    <div class="main-empty">Select a .cohort file to inspect</div>
+  </div>
+</div>
+
+
+<div class="toast" id="toast"></div>
+
+<script>
+let files=[], current=null, inspections={}, selected=new Set();
+const COLORS=['#58a6ff','#3fb950','#f0883e','#f85149','#d29922','#bc8cff'];
+
+
+/* ── Cmd+K palette ── */
+const CMDK_ITEMS=[
+  {label:'Query',icon:'&#9655;',fn:'showQuery'},
+  {label:'Similarity',icon:'&#10070;',fn:'showSimilarity'},
+  {label:'Overlap',icon:'&#9673;',fn:'showOverlap'},
+  {label:'Stats',icon:'&#9636;',fn:'showStats'},
+  {label:'Lineage',icon:'&#9670;',fn:'showLineage'},
+  {label:'Benchmark',icon:'&#9201;',fn:'showBenchmark'},
+];
+let cmdkIdx=0, cmdkFiltered=[];
+
+function openCmdK(){
+  const bd=document.getElementById('cmdk-backdrop');
+  const inp=document.getElementById('cmdk-input');
+  bd.classList.add('open');
+  inp.value='';
+  cmdkFiltered=[...CMDK_ITEMS];
+  cmdkIdx=0;
+  renderCmdK();
+  inp.focus();
+}
+function closeCmdK(){
+  document.getElementById('cmdk-backdrop').classList.remove('open');
+}
+function renderCmdK(){
+  const list=document.getElementById('cmdk-list');
+  if(!cmdkFiltered.length){list.innerHTML='<div class="cmdk-empty">No results</div>';return;}
+  list.innerHTML=cmdkFiltered.map((it,i)=>
+    `<div class="cmdk-item${i===cmdkIdx?' active':''}" data-i="${i}">
+      <span class="cmdk-icon">${it.icon}</span>
+      <span class="cmdk-label">${it.label}</span>
+    </div>`
+  ).join('');
+}
+// Event delegation on the list — handles hover and click for all items
+document.getElementById('cmdk-list').addEventListener('mouseover',e=>{
+  const item=e.target.closest('.cmdk-item');
+  if(!item)return;
+  cmdkIdx=parseInt(item.dataset.i);
+  document.querySelectorAll('.cmdk-item').forEach(el=>el.classList.remove('active'));
+  item.classList.add('active');
+});
+document.getElementById('cmdk-list').addEventListener('mousedown',e=>{
+  const item=e.target.closest('.cmdk-item');
+  if(!item)return;
+  e.preventDefault();
+  selectCmdK(parseInt(item.dataset.i));
+});
+function selectCmdK(i){
+  const it=cmdkFiltered[i];
+  if(!it)return;
+  closeCmdK();
+  window[it.fn]();
+}
+document.getElementById('cmdk-input').addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase().trim();
+  cmdkFiltered=q?CMDK_ITEMS.filter(it=>it.label.toLowerCase().includes(q)):[...CMDK_ITEMS];
+  cmdkIdx=0;
+  renderCmdK();
+});
+document.getElementById('cmdk-input').addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'){
+    e.preventDefault();cmdkIdx=Math.min(cmdkIdx+1,cmdkFiltered.length-1);
+    document.querySelectorAll('.cmdk-item').forEach((el,i)=>el.classList.toggle('active',i===cmdkIdx));
+    const a=document.querySelector('.cmdk-item.active');if(a)a.scrollIntoView({block:'nearest'});
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();cmdkIdx=Math.max(cmdkIdx-1,0);
+    document.querySelectorAll('.cmdk-item').forEach((el,i)=>el.classList.toggle('active',i===cmdkIdx));
+    const a=document.querySelector('.cmdk-item.active');if(a)a.scrollIntoView({block:'nearest'});
+  } else if(e.key==='Enter'){e.preventDefault();selectCmdK(cmdkIdx);}
+  else if(e.key==='Escape'){closeCmdK();}
+});
+document.getElementById('cmdk-backdrop').addEventListener('click',e=>{
+  if(e.target===e.currentTarget)closeCmdK();
+});
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){
+    e.preventDefault();
+    document.getElementById('cmdk-backdrop').classList.contains('open')?closeCmdK():openCmdK();
+  }
+  if((e.metaKey||e.ctrlKey)&&e.key==='l'){
+    e.preventDefault();
+    document.getElementById('cmdl-backdrop').classList.contains('open')?closeCmdL():openCmdL();
+  }
+});
+
+/* ── Cmd+L lakehouse palette ── */
+const CMDL_ITEMS=[
+  {label:'Search',icon:'&#128269;',desc:'Semantic patient search',fn:'showLakehouseSearch'},
+  {label:'Similar',icon:'&#9733;',desc:'Find similar patients',fn:'showLakehouseSimilar'},
+  {label:'Cohorts',icon:'&#9635;',desc:'View bitmap cohorts',fn:'showLakehouseCohorts'},
+  {label:'Policies',icon:'&#128274;',desc:'ABAC policy management',fn:'showLakehousePolicies'},
+  {label:'Audit',icon:'&#128203;',desc:'Query audit logs',fn:'showLakehouseAudit'},
+  {label:'Status',icon:'&#9881;',desc:'Lakehouse status',fn:'showLakehouseStatus'},
+];
+let cmdlIdx=0, cmdlFiltered=[];
+
+function openCmdL(){
+  const bd=document.getElementById('cmdl-backdrop');
+  const inp=document.getElementById('cmdl-input');
+  bd.classList.add('open');
+  inp.value='';
+  cmdlFiltered=[...CMDL_ITEMS];
+  cmdlIdx=0;
+  renderCmdL();
+  inp.focus();
+}
+function closeCmdL(){
+  document.getElementById('cmdl-backdrop').classList.remove('open');
+}
+function renderCmdL(){
+  const list=document.getElementById('cmdl-list');
+  if(!cmdlFiltered.length){list.innerHTML='<div class="cmdk-empty">No results</div>';return;}
+  list.innerHTML=cmdlFiltered.map((it,i)=>
+    `<div class="cmdk-item${i===cmdlIdx?' active':''}" data-i="${i}" onmouseenter="cmdlIdx=${i};renderCmdL()" onclick="selectCmdL(${i})">
+      <span class="cmdk-icon">${it.icon}</span>
+      <span class="cmdk-label">${it.label}</span>
+      <span class="cmdk-hint">${it.desc}</span>
+    </div>`
+  ).join('');
+}
+function selectCmdL(i){
+  const it=cmdlFiltered[i];
+  if(!it)return;
+  closeCmdL();
+  window[it.fn]();
+}
+document.getElementById('cmdl-input').addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase().trim();
+  cmdlFiltered=q?CMDL_ITEMS.filter(it=>it.label.toLowerCase().includes(q)||it.desc.toLowerCase().includes(q)):[...CMDL_ITEMS];
+  cmdlIdx=0;
+  renderCmdL();
+});
+document.getElementById('cmdl-input').addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'){e.preventDefault();cmdlIdx=Math.min(cmdlIdx+1,cmdlFiltered.length-1);renderCmdL();}
+  else if(e.key==='ArrowUp'){e.preventDefault();cmdlIdx=Math.max(cmdlIdx-1,0);renderCmdL();}
+  else if(e.key==='Enter'){e.preventDefault();selectCmdL(cmdlIdx);}
+  else if(e.key==='Escape'){closeCmdL();}
+});
+document.getElementById('cmdl-backdrop').addEventListener('click',e=>{
+  if(e.target===e.currentTarget)closeCmdL();
+});
+
+/* ── Lakehouse view functions ── */
+async function showLakehouseStatus(){
+  const main=document.getElementById('main');
+  main.innerHTML='<div class="spinner"></div>';
+  try{
+    const r=await fetch('/api/lakehouse/status');
+    const data=await r.json();
+    main.innerHTML=`
+      <div class="panel">
+        <h3>&#9881; Lakehouse Status</h3>
+        <div style="margin-top:16px">
+          <div style="margin-bottom:12px"><strong>Universes:</strong> ${data.universes?.length||0}</div>
+          <div style="margin-bottom:12px"><strong>Cohorts:</strong> ${data.cohorts?.length||0}</div>
+          <div style="margin-bottom:12px"><strong>Policies:</strong> ${data.policies?.length||0}</div>
+        </div>
+        ${data.universes?.length?`<div style="margin-top:16px"><strong>Available Universes:</strong><ul>${data.universes.map(u=>`<li>${esc(u)}</li>`).join('')}</ul></div>`:''}
+        ${data.cohorts?.length?`<div style="margin-top:16px"><strong>Cohorts:</strong><ul>${data.cohorts.map(c=>`<li>${esc(c.id)} (${c.version}) - ${(c.cardinality||0).toLocaleString()} patients</li>`).join('')}</ul></div>`:''}
+      </div>`;
+  }catch(err){
+    main.innerHTML=`<div class="panel"><h3>Error</h3><p>${esc(err.message)}</p></div>`;
+  }
+}
+
+async function showLakehouseSearch(){
+  const main=document.getElementById('main');
+  // Fetch available universes for dropdown
+  let universes=[];
+  try{const r=await fetch('/api/lakehouse/status');const d=await r.json();universes=d.universes||[];}catch(e){}
+  const defUniverse=universes.includes('tx_universe')?'tx_universe':(universes[0]||'');
+  const opts=universes.map(u=>`<option value="${esc(u)}"${u===defUniverse?' selected':''}>${esc(u)}</option>`).join('');
+  main.innerHTML=`
+    <div class="panel">
+      <h3>&#128269; Semantic Patient Search</h3>
+      <div style="margin-top:16px">
+        <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--muted)">Universe</label>
+        <select id="lh-search-universe" style="width:100%;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);margin-bottom:12px">
+          ${opts||'<option value="">No universes found</option>'}
+        </select>
+        <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--muted)">Search Query</label>
+        <input type="text" id="lh-search-query" value="knee pain treatment" style="width:100%;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);margin-bottom:12px">
+        <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--muted)">Top K</label>
+        <input type="number" id="lh-search-topk" value="10" style="width:100px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);margin-bottom:16px">
+        <div><button onclick="doLakehouseSearch()" style="background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer">Search</button></div>
+      </div>
+      <div id="lh-search-results" style="margin-top:20px"></div>
+    </div>`;
+}
+
+async function doLakehouseSearch(){
+  const universe=document.getElementById('lh-search-universe').value.trim();
+  const query=document.getElementById('lh-search-query').value.trim();
+  const topK=parseInt(document.getElementById('lh-search-topk').value)||20;
+  const resultsDiv=document.getElementById('lh-search-results');
+  if(!universe||!query){resultsDiv.innerHTML='<p style="color:var(--muted)">Please enter universe and query</p>';return;}
+  resultsDiv.innerHTML='<div class="spinner"></div>';
+  try{
+    const r=await fetch('/api/lakehouse/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({universe_id:universe,query_text:query,top_k:topK})});
+    const data=await r.json();
+    if(data.error){resultsDiv.innerHTML=`<p style="color:#f85149">${esc(data.error)}</p>`;return;}
+    if(!data.results?.length){resultsDiv.innerHTML='<p style="color:var(--muted)">No results found</p>';return;}
+    resultsDiv.innerHTML=`<div style="margin-bottom:8px;font-size:12px;color:var(--muted)">${data.num_results} results — Vector: ${data.vector_ms||0}ms, Iceberg: ${data.iceberg_ms||0}ms, Total: ${data.elapsed_ms}ms</div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Patient ID</th><th>Sex</th><th>YOB</th><th>State</th><th>Service Date</th><th>Procedure</th><th>Diagnoses</th><th>Score</th></tr></thead><tbody>${data.results.map(r=>`<tr><td>${esc(String(r.patient_id||r.id))}</td><td>${esc(r.patient_sex||'')}</td><td>${esc(r.patient_yob||'')}</td><td>${esc(r.patient_state||r.state||'')}</td><td>${esc(r.service_date||'')}</td><td>${esc(r.procedure_code||'')}</td><td style="font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.diagnosis_codes||r.diagnoses||'')}">${esc(r.diagnosis_codes||r.diagnoses||'')}</td><td>${(r.score||0).toFixed(4)}</td></tr>`).join('')}</tbody></table></div>`;
+  }catch(err){
+    resultsDiv.innerHTML=`<p style="color:#f85149">${esc(err.message)}</p>`;
+  }
+}
+
+async function showLakehouseSimilar(){
+  const main=document.getElementById('main');
+  // Fetch available universes for dropdown
+  let universes=[];
+  try{const r=await fetch('/api/lakehouse/status');const d=await r.json();universes=d.universes||[];}catch(e){}
+  const defUniverse2=universes.includes('tx_universe')?'tx_universe':(universes[0]||'');
+  const opts2=universes.map(u=>`<option value="${esc(u)}"${u===defUniverse2?' selected':''}>${esc(u)}</option>`).join('');
+  main.innerHTML=`
+    <div class="panel">
+      <h3>&#9733; Find Similar Patients</h3>
+      <div style="margin-top:16px">
+        <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--muted)">Universe</label>
+        <select id="lh-sim-universe" style="width:100%;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);margin-bottom:12px">
+          ${opts2||'<option value="">No universes found</option>'}
+        </select>
+        <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--muted)">Patient ID</label>
+        <input type="number" id="lh-sim-patient" value="167425645" style="width:100%;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);margin-bottom:12px">
+        <label style="display:block;margin-bottom:8px;font-size:12px;color:var(--muted)">Top K</label>
+        <input type="number" id="lh-sim-topk" value="10" style="width:100px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);margin-bottom:16px">
+        <div><button onclick="doLakehouseSimilar()" style="background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer">Find Similar</button></div>
+      </div>
+      <div id="lh-sim-results" style="margin-top:20px"></div>
+    </div>`;
+}
+
+async function doLakehouseSimilar(){
+  const universe=document.getElementById('lh-sim-universe').value.trim();
+  const patientId=document.getElementById('lh-sim-patient').value.trim();
+  const topK=parseInt(document.getElementById('lh-sim-topk').value)||20;
+  const resultsDiv=document.getElementById('lh-sim-results');
+  if(!universe||!patientId){resultsDiv.innerHTML='<p style="color:var(--muted)">Please enter universe and patient ID</p>';return;}
+  resultsDiv.innerHTML='<div class="spinner"></div>';
+  try{
+    const r=await fetch('/api/lakehouse/similar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({universe_id:universe,patient_id:parseInt(patientId),top_k:topK})});
+    const data=await r.json();
+    if(data.error){resultsDiv.innerHTML=`<p style="color:#f85149">${esc(data.error)}</p>`;return;}
+    if(!data.results?.length){resultsDiv.innerHTML='<p style="color:var(--muted)">No similar patients found</p>';return;}
+    resultsDiv.innerHTML=`<div style="margin-bottom:8px;font-size:12px;color:var(--muted)">${data.num_results} similar patients — Vector: ${data.vector_ms||0}ms, Iceberg: ${data.iceberg_ms||0}ms, Total: ${data.elapsed_ms}ms</div><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Patient ID</th><th>Sex</th><th>YOB</th><th>State</th><th>Service Date</th><th>Procedure</th><th>Diagnoses</th><th>Similarity</th></tr></thead><tbody>${data.results.map(r=>`<tr><td>${esc(String(r.patient_id||r.id))}</td><td>${esc(r.patient_sex||'')}</td><td>${esc(r.patient_yob||'')}</td><td>${esc(r.patient_state||r.state||'')}</td><td>${esc(r.service_date||'')}</td><td>${esc(r.procedure_code||'')}</td><td style="font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.diagnosis_codes||r.diagnoses||'')}">${esc(r.diagnosis_codes||r.diagnoses||'')}</td><td>${(r.score||0).toFixed(4)}</td></tr>`).join('')}</tbody></table></div>`;
+  }catch(err){
+    resultsDiv.innerHTML=`<p style="color:#f85149">${esc(err.message)}</p>`;
+  }
+}
+
+async function showLakehouseCohorts(){
+  const main=document.getElementById('main');
+  main.innerHTML='<div class="spinner"></div>';
+  try{
+    const r=await fetch('/api/lakehouse/status');
+    const data=await r.json();
+    const cohorts=data.cohorts||[];
+    main.innerHTML=`
+      <div class="panel">
+        <h3>&#9635; Bitmap Cohorts</h3>
+        ${cohorts.length?`<table class="tbl" style="margin-top:16px"><thead><tr><th>Cohort ID</th><th>Version</th><th>Patients</th></tr></thead><tbody>${cohorts.map(c=>`<tr><td>${esc(c.id)}</td><td>${esc(c.version)}</td><td>${(c.cardinality||0).toLocaleString()}</td></tr>`).join('')}</tbody></table>`:'<p style="color:var(--muted);margin-top:16px">No cohorts found</p>'}
+      </div>`;
+  }catch(err){
+    main.innerHTML=`<div class="panel"><h3>Error</h3><p>${esc(err.message)}</p></div>`;
+  }
+}
+
+async function showLakehousePolicies(){
+  const main=document.getElementById('main');
+  main.innerHTML='<div class="spinner"></div>';
+  try{
+    const r=await fetch('/api/lakehouse/policies');
+    const data=await r.json();
+    const policies=data.policies||[];
+    main.innerHTML=`
+      <div class="panel">
+        <h3>&#128274; ABAC Policies</h3>
+        ${policies.length?`<table class="tbl" style="margin-top:16px"><thead><tr><th>ID</th><th>Effect</th><th>Subjects</th><th>Actions</th><th>Resources</th></tr></thead><tbody>${policies.map(p=>`<tr><td>${esc(p.id)}</td><td>${esc(p.effect)}</td><td>${esc(JSON.stringify(p.subjects||{}))}</td><td>${esc((p.actions||[]).join(', '))}</td><td>${esc((p.resources||[]).join(', '))}</td></tr>`).join('')}</tbody></table>`:'<p style="color:var(--muted);margin-top:16px">No policies configured</p>'}
+      </div>`;
+  }catch(err){
+    main.innerHTML=`<div class="panel"><h3>Error</h3><p>${esc(err.message)}</p></div>`;
+  }
+}
+
+async function showLakehouseAudit(){
+  const main=document.getElementById('main');
+  main.innerHTML='<div class="spinner"></div>';
+  try{
+    const r=await fetch('/api/lakehouse/audit?limit=50');
+    const data=await r.json();
+    const logs=data.logs||[];
+    main.innerHTML=`
+      <div class="panel">
+        <h3>&#128203; Audit Logs</h3>
+        ${logs.length?`<table class="tbl" style="margin-top:16px;font-size:12px"><thead><tr><th>Timestamp</th><th>User</th><th>Query Type</th><th>Success</th><th>Rows</th></tr></thead><tbody>${logs.map(l=>`<tr><td>${esc(l.timestamp||'')}</td><td>${esc(l.user_id||l.user||'')}</td><td>${esc(l.query_type||'')}</td><td>${l.success?'✓':'✗'}</td><td>${l.rows_returned||0}</td></tr>`).join('')}</tbody></table>`:'<p style="color:var(--muted);margin-top:16px">No audit logs found</p>'}
+      </div>`;
+  }catch(err){
+    main.innerHTML=`<div class="panel"><h3>Error</h3><p>${esc(err.message)}</p></div>`;
+  }
+}
+
+async function loadFiles(){
+  const r=await fetch('/api/files');
+  const j=await r.json();
+  files=j.files;
+  document.getElementById('file-count').textContent=files.length;
+  document.getElementById('meta').textContent=j.directory;
+  renderFiles();
+}
+
+function fileSearchText(f){
+  let s=f.name;
+  if(f.cohort_name) s+=' '+f.cohort_name;
+  if(f.selectors) s+=' '+f.selectors.map(sel=>sel.field+'='+sel.values.join(',')).join(' ');
+  if(f.columns) s+=' '+f.columns.join(' ');
+  if(f.datasets) s+=' '+f.datasets.join(' ');
+  return s.toLowerCase();
+}
+
+function filterFiles(){
+  const q=(document.getElementById('file-search')?.value||'').toLowerCase().trim();
+  const filtered=q?files.filter(f=>fileSearchText(f).includes(q)):files;
+  renderFileList(filtered);
+}
+
+function renderFiles(){
+  filterFiles();
+}
+
+function renderFileList(list){
+  const el=document.getElementById('file-list');
+  if(!files.length){el.innerHTML='<div style="text-align:center;padding:32px 16px;color:var(--border);font-size:13px">No .cohort files found</div>';return}
+  if(!list.length){el.innerHTML='<div style="text-align:center;padding:32px 16px;color:var(--border);font-size:13px">No matching files</div>';return}
+  el.innerHTML=list.map(f=>{
+    const sel=current===f.name?' sel':'';
+    const kb=(f.size_bytes/1024).toFixed(1);
+    const mb=(f.size_bytes/1048576).toFixed(1);
+    const size=f.size_bytes>1048576?mb+' MB':kb+' KB';
+    const cohortLine=f.cohort_name&&f.cohort_name!==f.name?`<div class="cohort-name">${esc(f.cohort_name)}</div>`:'';
+    const rowBadge=f.num_rows!=null?`<span class="row-badge">${f.num_rows.toLocaleString()} rows</span>`:'';
+    const selSummary=f.selectors&&f.selectors.length?`<div class="sel-summary">${f.selectors.map(s=>esc(s.field)+'='+esc(s.values.join(','))).join(' &middot; ')}</div>`:'';
+    return`<div class="file-card${sel}" onclick="selectFile('${f.name}')">
+      <div class="name" title="${f.name}"><span class="icon">&#9638;</span><span style="overflow:hidden;text-overflow:ellipsis">${f.name}</span></div>
+      ${cohortLine}
+      <div class="sub">${size}${rowBadge}</div>
+      ${selSummary}
+    </div>`;
+  }).join('');
+}
+
+async function selectFile(name){
+  current=name;
+  renderFiles();
+  const main=document.getElementById('main');
+  main.innerHTML='<div class="main-empty"><div class="loading"></div></div>';
+  let info=inspections[name];
+  if(!info){
+    const r=await fetch('/api/inspect/'+encodeURIComponent(name));
+    info=await r.json();
+    inspections[name]=info;
+  }
+  renderInspect(name,info);
+}
+
+function renderInspect(name,info){
+  const d=info.cohort_definition;
+  const fm=info.file_metadata;
+  const size=fm.file_size_bytes>1048576?(fm.file_size_bytes/1048576).toFixed(1)+' MB':(fm.file_size_bytes/1024).toFixed(1)+' KB';
+
+  let html=`<div class="inspect">`;
+  html+=`<div class="inspect-head">
+    <h2>${esc(d.name)}</h2>
+    <span class="tag v">v${fm.format_version}.${d.revision}</span>
+    <span class="tag size">${size}</span>
+    ${info.backend?'<span class="backend-tag">Iceberg</span>':''}
+  </div>`;
+  if(d.description) html+=`<p style="font-size:14px;color:var(--muted);margin-bottom:16px">${esc(d.description)}</p>`;
+
+  html+=`<div class="section"><h3>Metadata</h3><div class="kv">
+    <span class="k">File</span><span class="v">${esc(fm.path)}</span>
+    <span class="k">Created by</span><span class="v">${esc(d.created_by)}</span>
+    <span class="k">Created at</span><span class="v">${esc(d.created_at)}</span>
+    <span class="k">Datasets</span><span class="v">${fm.num_datasets}</span>
+  </div></div>`;
+
+  const src=Array.isArray(d.lineage.source_system)?d.lineage.source_system.join(', '):d.lineage.source_system;
+  html+=`<div class="section"><h3>Lineage</h3><div class="kv">
+    <span class="k">Source system</span><span class="v">${esc(src)}</span>
+    <span class="k">Source tables</span><span class="v">${(d.lineage.source_tables||[]).map(esc).join(', ')}</span>
+    <span class="k">Extraction date</span><span class="v">${esc(d.lineage.extraction_date)}</span>
+  </div></div>`;
+
+  if(d.selectors&&d.selectors.length){
+    html+=`<div class="section"><h3>Selectors</h3><div class="sel-list">`;
+    for(const s of d.selectors){
+      const vals=Array.isArray(s.values)?s.values.join(', '):s.values;
+      html+=`<div class="sel-chip"><span class="field">${esc(s.field)}</span><span class="op">${esc(s.operator)}</span><span class="vals">${esc(String(vals))}</span></div>`;
+    }
+    html+=`</div></div>`;
+  }
+
+  if(d.revision_history&&d.revision_history.length){
+    html+=`<div class="section"><h3>Revision History</h3>`;
+    // Chart if any revisions have size data
+    const withSize=d.revision_history.filter(r=>r.size!=null);
+    if(withSize.length>1) html+=`<div class="rev-chart" id="rev-chart" data-revisions='${JSON.stringify(d.revision_history).replace(/'/g,"&#39;")}'></div>`;
+    html+=`<div class="rev-list">`;
+    for(const r of d.revision_history){
+      const sizeStr=r.size!=null?`<span class="size">${r.size.toLocaleString()} rows</span>`:'';
+      html+=`<div class="rev-item"><span class="rn">r${r.revision}</span><span class="msg">${esc(r.message)}</span><span class="author">${esc(r.author)}</span>${sizeStr}</div>`;
+    }
+    html+=`</div>`;
+    html+=`</div>`;
+
+    // Git-patch style changelog (auto-show when >1 revision)
+    if(d.revision_history.length>1){
+      html+=`<div class="section"><h3>Changelog</h3>`;
+      const revs=d.revision_history;
+      for(let ri=revs.length-1;ri>=0;ri--){
+        const rev=revs[ri];
+        const prev=ri>0?revs[ri-1]:null;
+        const isFirst=rev.revision===1;
+
+        // Parse add/delete from message like "(865,001 deleted, 2,895,007 added)"
+        const addMatch=rev.message.match(/([\d,]+)\s+added/);
+        const delMatch=rev.message.match(/([\d,]+)\s+deleted/);
+        const rowsAdded=addMatch?parseInt(addMatch[1].replace(/,/g,'')):null;
+        const rowsDeleted=delMatch?parseInt(delMatch[1].replace(/,/g,'')):null;
+        const netDelta=prev&&rev.size!=null&&prev.size!=null?rev.size-prev.size:null;
+
+        // Commit-style header
+        html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden">`;
+        html+=`<div style="padding:12px 14px;display:flex;align-items:center;gap:10px">`;
+        html+=`<span style="background:rgba(88,166,255,.15);color:var(--accent);font-weight:700;font-size:12px;padding:2px 8px;border-radius:4px;font-family:monospace">r${rev.revision}</span>`;
+        html+=`<span style="flex:1;font-size:13px;color:var(--text)">${esc(rev.message)}</span>`;
+        html+=`<span style="font-size:11px;color:var(--muted)">${esc(rev.author)}</span>`;
+        html+=`</div>`;
+
+        // Stat line (like git diff --stat)
+        if(!isFirst&&(rowsAdded!=null||rowsDeleted!=null||netDelta!=null)){
+          html+=`<div style="border-top:1px solid var(--border);padding:8px 14px;font-family:monospace;font-size:12px;background:var(--bg);display:flex;gap:16px;align-items:center">`;
+          if(rowsDeleted!=null) html+=`<span style="color:var(--red)">-${rowsDeleted.toLocaleString()} rows</span>`;
+          if(rowsAdded!=null) html+=`<span style="color:var(--green)">+${rowsAdded.toLocaleString()} rows</span>`;
+          if(rev.size!=null) html+=`<span style="color:var(--muted);margin-left:auto">${rev.size.toLocaleString()} total</span>`;
+          html+=`</div>`;
+
+          // Visual bar showing add/delete proportions
+          if(rowsAdded!=null||rowsDeleted!=null){
+            const total=(rowsAdded||0)+(rowsDeleted||0);
+            const delPct=total?((rowsDeleted||0)/total*100):0;
+            const addPct=total?((rowsAdded||0)/total*100):0;
+            html+=`<div style="display:flex;height:4px">`;
+            if(delPct>0) html+=`<div style="width:${delPct}%;background:var(--red)"></div>`;
+            if(addPct>0) html+=`<div style="width:${addPct}%;background:var(--green)"></div>`;
+            html+=`</div>`;
+          }
+        } else if(isFirst&&rev.size!=null){
+          html+=`<div style="border-top:1px solid var(--border);padding:8px 14px;font-family:monospace;font-size:12px;background:var(--bg);display:flex;gap:16px;align-items:center">`;
+          html+=`<span style="color:var(--green)">+${rev.size.toLocaleString()} rows</span>`;
+          html+=`<span style="color:var(--muted);margin-left:auto">${rev.size.toLocaleString()} total</span>`;
+          html+=`</div>`;
+          html+=`<div style="height:4px;background:var(--green)"></div>`;
+        }
+
+        // Selector deltas (if any exist for this revision)
+        if(rev.deltas&&rev.deltas.length){
+          html+=`<div style="border-top:1px solid var(--border);padding:10px 14px">`;
+          for(const dt of rev.deltas){
+            const color=dt.action==='add'?'var(--green)':dt.action==='remove'?'var(--red)':'var(--yellow)';
+            const bg=dt.action==='add'?'rgba(63,185,80,.1)':dt.action==='remove'?'rgba(248,81,73,.1)':'rgba(210,153,34,.1)';
+            const prefix=dt.action==='add'?'+':dt.action==='remove'?'-':'~';
+            html+=`<div style="font-family:monospace;font-size:12px;padding:4px 8px;margin-bottom:4px;background:${bg};border-radius:4px;border-left:3px solid ${color}">`;
+            html+=`<span style="color:${color};font-weight:700">${prefix}</span> `;
+            html+=`<span style="color:var(--accent)">${esc(dt.selector_id)}</span>`;
+            if(dt.selector) html+=` <span style="color:var(--muted)">${fmtSelector(dt.selector)}</span>`;
+            if(dt.action==='modify'&&dt.field){
+              const bef=Array.isArray(dt.before)?dt.before.join(', '):String(dt.before??'');
+              const aft=Array.isArray(dt.after)?dt.after.join(', '):String(dt.after??'');
+              html+=`<div style="margin-top:2px;padding-left:16px"><span style="color:var(--muted)">${esc(dt.field)}:</span> <span style="color:var(--red);text-decoration:line-through">${esc(bef)}</span> <span style="color:var(--muted)">&rarr;</span> <span style="color:var(--green)">${esc(aft)}</span></div>`;
+            }
+            html+=`</div>`;
+          }
+          html+=`</div>`;
+        }
+
+        html+=`</div>`;
+      }
+      html+=`</div>`;
+    }
+  }
+
+  if(info.backend){
+    html+=`<div class="section"><h3>Iceberg Backend</h3><div class="kv">
+      <span class="k">Database</span><span class="v">${esc(info.backend.database)}</span>
+      <span class="k">Table</span><span class="v">${esc(info.backend.table_name)}</span>
+      <span class="k">Location</span><span class="v">${esc(info.backend.table_location)}</span>
+      ${info.backend.snapshot_id?`<span class="k">Snapshot</span><span class="v">${info.backend.snapshot_id}</span>`:''}
+    </div></div>`;
+  }
+
+  if(info.datasets&&info.datasets.length){
+    html+=`<div class="section"><h3>Datasets</h3>`;
+    html+=`<div class="mod-tabs" id="mod-tabs">`;
+    for(let i=0;i<info.datasets.length;i++){
+      const m=info.datasets[i];
+      html+=`<div class="mod-tab${i===0?' sel':''}" onclick="selectDataset('${esc(name)}','${esc(m.label)}',this)">${esc(m.label)} <span style="color:var(--muted);font-weight:400">(${m.num_rows.toLocaleString()})</span></div>`;
+    }
+    html+=`</div><div id="mod-info">${modInfo(info.datasets[0])}</div>`;
+    html+=`<div id="data-preview"><div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;cursor:pointer" onclick="loadData('${esc(name)}','${esc(info.datasets[0].label)}')">Click to preview data</div></div>`;
+    html+=`</div>`;
+  }
+  html+=`</div>`;
+  document.getElementById('main').innerHTML=html;
+
+  // Render revision chart if container exists
+  const chartEl=document.getElementById('rev-chart');
+  if(chartEl) renderRevisionChart(chartEl);
+}
+
+function renderRevisionChart(container){
+  const revisions=JSON.parse(container.dataset.revisions);
+  const pts=revisions.filter(r=>r.size!=null);
+  if(!pts.length) return;
+
+  const W=container.clientWidth-32, H=160;
+  const pad={t:20,r:20,b:32,l:56};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+
+  const maxSize=Math.max(...pts.map(r=>r.size));
+  const minSize=Math.min(...pts.map(r=>r.size));
+  const yRange=maxSize-minSize||1;
+
+  // X positions: evenly spaced by revision index
+  const xStep=pts.length>1?cw/(pts.length-1):cw/2;
+  const coords=pts.map((r,i)=>{
+    const x=pad.l+(pts.length>1?i*xStep:cw/2);
+    const y=pad.t+ch-(((r.size-minSize)/yRange)*ch);
+    return{x,y,r};
+  });
+
+  // Y-axis ticks (3-5 ticks)
+  const nTicks=Math.min(4,pts.length>1?4:2);
+  const yTicks=[];
+  for(let i=0;i<=nTicks;i++){
+    const val=minSize+(yRange/nTicks)*i;
+    const y=pad.t+ch-((val-minSize)/yRange)*ch;
+    yTicks.push({val:Math.round(val),y});
+  }
+
+  // Build SVG
+  let svg=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  svg+=`<defs>
+    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#58a6ff" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#58a6ff" stop-opacity="0.02"/>
+    </linearGradient>
+    <filter id="dotGlow"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#58a6ff" flood-opacity=".5"/></filter>
+  </defs>`;
+
+  // Grid lines
+  for(const t of yTicks){
+    svg+=`<line x1="${pad.l}" y1="${t.y}" x2="${W-pad.r}" y2="${t.y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3" opacity=".5"/>`;
+    const label=t.val>=10000?(t.val/1000).toFixed(0)+'K':t.val.toLocaleString();
+    svg+=`<text x="${pad.l-8}" y="${t.y+4}" text-anchor="end" fill="var(--muted)" font-size="10" font-family="-apple-system,system-ui,sans-serif">${label}</text>`;
+  }
+
+  // Step area fill
+  if(coords.length>1){
+    let areaPath=`M${coords[0].x},${coords[0].y}`;
+    for(let i=1;i<coords.length;i++){
+      areaPath+=` H${coords[i].x} V${coords[i].y}`;
+    }
+    areaPath+=` V${pad.t+ch} H${coords[0].x} Z`;
+    svg+=`<path d="${areaPath}" fill="url(#revGrad)"/>`;
+
+    // Step line
+    let linePath=`M${coords[0].x},${coords[0].y}`;
+    for(let i=1;i<coords.length;i++){
+      linePath+=` H${coords[i].x} V${coords[i].y}`;
+    }
+    svg+=`<path d="${linePath}" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linecap="round"/>`;
+  }
+
+  // X-axis labels
+  for(let i=0;i<coords.length;i++){
+    svg+=`<text x="${coords[i].x}" y="${H-6}" text-anchor="middle" fill="var(--muted)" font-size="10" font-family="-apple-system,system-ui,sans-serif">r${pts[i].revision}</text>`;
+  }
+
+  // Data dots (drawn last so they're on top)
+  coords.forEach((c,i)=>{
+    svg+=`<circle cx="${c.x}" cy="${c.y}" r="5" fill="#0d1117" stroke="#58a6ff" stroke-width="2" filter="url(#dotGlow)" data-idx="${i}" class="rev-dot" style="cursor:pointer"/>`;
+  });
+
+  // Y-axis label
+  svg+=`<text x="${pad.l-8}" y="${pad.t-8}" text-anchor="end" fill="var(--muted)" font-size="10" font-style="italic" font-family="-apple-system,system-ui,sans-serif">rows</text>`;
+
+  svg+=`</svg>`;
+  container.innerHTML=svg;
+  container.style.position='relative';
+
+  // Tooltip
+  const tip=document.createElement('div');
+  tip.className='rev-chart-tooltip';
+  container.appendChild(tip);
+
+  container.querySelectorAll('.rev-dot').forEach(dot=>{
+    dot.addEventListener('mouseenter',e=>{
+      const idx=+dot.dataset.idx;
+      const r=pts[idx];
+      tip.innerHTML=`<span class="tt-rev">r${r.revision}</span> &mdash; <span class="tt-size">${r.size.toLocaleString()} rows</span><div class="tt-msg">${esc(r.message)}</div><div class="tt-author">${esc(r.author)}</div>`;
+      tip.style.opacity='1';
+      const cx=+dot.getAttribute('cx'), cy=+dot.getAttribute('cy');
+      tip.style.left=(cx-tip.offsetWidth/2)+'px';
+      tip.style.top=(cy-tip.offsetHeight-14)+'px';
+    });
+    dot.addEventListener('mouseleave',()=>{tip.style.opacity='0'});
+  });
+}
+
+function modInfo(m){
+  let html=`<div class="kv" style="margin-bottom:12px">
+    <span class="k">Rows</span><span class="v">${m.num_rows.toLocaleString()}</span>
+    <span class="k">Columns</span><span class="v">${m.num_columns}</span>
+    <span class="k">Compressed</span><span class="v">${(m.compressed_size/1024).toFixed(1)} KB</span>
+  </div>`;
+  if(m.columns&&m.columns.length){
+    html+=`<div class="col-list">`;
+    for(const c of m.columns) html+=`<span class="col-chip" title="${esc(c.data_type)}${c.nullable?' (nullable)':''}">${esc(c.name)}</span>`;
+    html+=`</div>`;
+  }
+  return html;
+}
+
+async function selectDataset(file,label,el){
+  document.querySelectorAll('.mod-tab').forEach(t=>t.classList.remove('sel'));
+  el.classList.add('sel');
+  const m=inspections[file].datasets.find(x=>x.label===label);
+  document.getElementById('mod-info').innerHTML=modInfo(m);
+  document.getElementById('data-preview').innerHTML=`<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;cursor:pointer" onclick="loadData('${esc(file)}','${esc(label)}')">Click to preview data</div>`;
+}
+
+async function loadData(file,label){
+  const dp=document.getElementById('data-preview');
+  dp.innerHTML='<div style="text-align:center;padding:20px"><div class="loading"></div></div>';
+  const r=await fetch(`/api/data/${encodeURIComponent(file)}/${encodeURIComponent(label)}?limit=100`);
+  const j=await r.json();
+  if(!j.rows.length){dp.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">No data</div>';return}
+  let html=`<div class="data-wrap"><table class="data-table"><thead><tr>`;
+  for(const c of j.columns) html+=`<th>${esc(c)}</th>`;
+  html+=`</tr></thead><tbody>`;
+  for(const row of j.rows){
+    html+=`<tr>`;
+    for(const c of j.columns){
+      const v=row[c];
+      html+=v===null||v===undefined?`<td class="null">null</td>`:`<td title="${esc(String(v))}">${esc(String(v))}</td>`;
+    }
+    html+=`</tr>`;
+  }
+  html+=`</tbody></table></div>`;
+  html+=`<div class="data-info">Showing ${j.returned_rows.toLocaleString()} of ${j.total_rows.toLocaleString()} rows</div>`;
+  dp.innerHTML=html;
+}
+
+// ── Overlap visualization ───────────────────────────────────
+
+async function showOverlap(){
+  current=null;
+  renderFiles();
+  const main=document.getElementById('main');
+
+  let html=`<div class="overlap-view">`;
+  html+=`<div class="overlap-head"><h2>Cohort Overlap</h2></div>`;
+  html+=`<p style="font-size:13px;color:var(--muted);margin-bottom:16px">Select 2-6 cohort files to visualize patient overlap.</p>`;
+
+  html+=`<div class="overlap-files" id="ov-files">`;
+  files.forEach((f,i)=>{
+    html+=`<div class="chip${selected.has(f.name)?' on':''}" onclick="toggleOvFile('${f.name}')" style="border-left:3px solid ${COLORS[i%COLORS.length]}">${f.name}</div>`;
+  });
+  html+=`</div>`;
+
+  html+=`<div class="overlap-config">
+    <div class="field"><label>Key column</label><select id="ov-key" style="width:220px" onchange="autoOverlap()"><option value="">Select files first...</option></select></div>
+  </div>`;
+
+  html+=`<div id="ov-result"></div>`;
+  html+=`</div>`;
+  main.innerHTML=html;
+  updateKeyColumnSelect().then(()=>autoOverlap());
+}
+
+async function updateKeyColumnSelect(){
+  const names=[...selected];
+  const sel=document.getElementById('ov-key');
+  if(!sel) return;
+  if(names.length===0){
+    sel.innerHTML='<option value="">Select files first...</option>';
+    return;
+  }
+  // Inspect first selected file to get columns
+  const first=names[0];
+  let info=inspections[first];
+  if(!info){
+    const r=await fetch('/api/inspect/'+encodeURIComponent(first));
+    info=await r.json();
+    inspections[first]=info;
+  }
+  const cols=(info.datasets&&info.datasets[0]?.columns)||[];
+  const prev=sel.value;
+  sel.innerHTML=cols.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  // Try to keep PATIENT_NUMBER selected, or restore previous
+  const prefer=prev||'PATIENT_NUMBER';
+  if(cols.some(c=>c.name===prefer)) sel.value=prefer;
+}
+
+function toggleOvFile(name){
+  if(selected.has(name)) selected.delete(name); else selected.add(name);
+  const el=document.getElementById('ov-files');
+  el.innerHTML='';
+  files.forEach((f,i)=>{
+    el.innerHTML+=`<div class="chip${selected.has(f.name)?' on':''}" onclick="toggleOvFile('${f.name}')" style="border-left:3px solid ${COLORS[i%COLORS.length]}">${f.name}</div>`;
+  });
+  updateKeyColumnSelect().then(()=>autoOverlap());
+}
+
+function autoOverlap(){
+  if(selected.size>=2 && document.getElementById('ov-key')?.value) runOverlap();
+}
+
+async function runOverlap(){
+  const names=[...selected];
+  if(names.length<2) return;
+  const key=document.getElementById('ov-key')?.value;
+  if(!key) return;
+
+  const result=document.getElementById('ov-result');
+  if(!result) return;
+  result.innerHTML='<div style="text-align:center;padding:40px"><div class="loading"></div></div>';
+
+  try{
+    const r=await fetch('/api/overlap',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({files:names,on:key})});
+    const data=await r.json();
+    if(!r.ok){notify('Error: '+(data.detail||'failed'));result.innerHTML='';return}
+    renderOverlapResult(data);
+  }catch(e){notify('Error: '+e.message);result.innerHTML=''}
+}
+
+function renderOverlapResult(data){
+  const el=document.getElementById('ov-result');
+  const n=data.files.length;
+  let html='';
+
+  // Legend
+  html+=`<div class="overlap-legend">`;
+  data.files.forEach((f,i)=>{
+    html+=`<div class="leg"><div class="swatch" style="background:${COLORS[i%COLORS.length]}"></div>${shortName(f)} <span style="color:var(--text);font-weight:600">${data.sizes[f].toLocaleString()}</span></div>`;
+  });
+  html+=`</div>`;
+
+  // Selectors panel — show WHY each cohort is defined
+  html+=renderOverlapSelectors(data);
+
+  // Venn diagram for 2-3 files
+  if(n<=3) html+=renderVenn(data);
+
+  // UpSet-style intersection bars (always)
+  html+=renderUpset(data);
+
+  // Pairwise matrix
+  html+=renderMatrix(data);
+
+  el.innerHTML=html;
+}
+
+function renderOverlapSelectors(data){
+  let html=`<div class="ov-selectors">`;
+  data.files.forEach((fname,i)=>{
+    const f=files.find(x=>x.name===fname);
+    const sels=f&&f.selectors&&f.selectors.length?f.selectors:[];
+    const color=COLORS[i%COLORS.length];
+    html+=`<div class="ov-sel-row">`;
+    html+=`<span class="ov-sel-name" style="color:${color}">${shortName(fname)}</span>`;
+    if(sels.length){
+      html+=`<div class="ov-sel-chips">`;
+      for(const s of sels){
+        const vals=Array.isArray(s.values)?s.values.join(', '):s.values;
+        html+=`<span class="ov-sel-chip"><span class="field">${esc(s.field)}</span><span class="op">${esc(s.operator||'=')}</span><span class="vals">${esc(String(vals))}</span></span>`;
+      }
+      html+=`</div>`;
+    } else {
+      html+=`<span class="ov-sel-no">no selectors</span>`;
+    }
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  return html;
+}
+
+function shortName(f){return f.replace('.cohort','');}
+
+// ── Venn diagram (SVG) ──────────────────────────────────────
+
+function renderVenn(data){
+  const n=data.files.length;
+  if(n===2) return renderVenn2(data);
+  if(n===3) return renderVenn3(data);
+  return '';
+}
+
+function renderVenn2(data){
+  const W=560,H=300;
+  const f=data.files;
+  const onlyA=data.regions.find(r=>r.mask===1)?.exclusive_size||0;
+  const onlyB=data.regions.find(r=>r.mask===2)?.exclusive_size||0;
+  const both=data.regions.find(r=>r.mask===3)?.intersection_size||0;
+  // Two overlapping rounded rects
+  const S=180, ov=60, rx=14;
+  const x1=W/2-S+ov/2, x2=W/2-ov/2, y=50;
+
+  return`<div class="venn-container">
+  <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <defs>
+      <filter id="glow2a"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="${COLORS[0]}" flood-opacity=".25"/></filter>
+      <filter id="glow2b"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="${COLORS[1]}" flood-opacity=".25"/></filter>
+    </defs>
+    <rect x="${x1}" y="${y}" width="${S}" height="${S}" rx="${rx}" fill="${COLORS[0]}" fill-opacity=".15" stroke="${COLORS[0]}" stroke-width="2" filter="url(#glow2a)"/>
+    <rect x="${x2}" y="${y}" width="${S}" height="${S}" rx="${rx}" fill="${COLORS[1]}" fill-opacity=".15" stroke="${COLORS[1]}" stroke-width="2" filter="url(#glow2b)"/>
+    <!-- Only A -->
+    <text x="${x1+S/2-ov/2}" y="${y+S/2-8}" class="venn-count" text-anchor="middle">${onlyA.toLocaleString()}</text>
+    <text x="${x1+S/2-ov/2}" y="${y+S/2+14}" class="venn-name" text-anchor="middle">only</text>
+    <!-- Shared -->
+    <text x="${(x1+S+x2)/2}" y="${y+S/2-8}" class="venn-count" text-anchor="middle" fill="var(--green)">${both.toLocaleString()}</text>
+    <text x="${(x1+S+x2)/2}" y="${y+S/2+14}" class="venn-name" text-anchor="middle">shared</text>
+    <!-- Only B -->
+    <text x="${x2+S/2+ov/2}" y="${y+S/2-8}" class="venn-count" text-anchor="middle">${onlyB.toLocaleString()}</text>
+    <text x="${x2+S/2+ov/2}" y="${y+S/2+14}" class="venn-name" text-anchor="middle">only</text>
+    <!-- Labels -->
+    <text x="${x1+S/2}" y="${y-12}" class="venn-label" text-anchor="middle" fill="${COLORS[0]}">${shortName(f[0])}</text>
+    <text x="${x2+S/2}" y="${y-12}" class="venn-label" text-anchor="middle" fill="${COLORS[1]}">${shortName(f[1])}</text>
+  </svg></div>`;
+}
+
+function renderVenn3(data){
+  const W=600,H=440;
+  const S=170, ov=50, rx=14;
+  const find=(mask)=>data.regions.find(r=>r.mask===mask);
+  const onlyA=find(1)?.exclusive_size||0;
+  const onlyB=find(2)?.exclusive_size||0;
+  const onlyC=find(4)?.exclusive_size||0;
+  const AB=find(3)?.exclusive_size||0;
+  const AC=find(5)?.exclusive_size||0;
+  const BC=find(6)?.exclusive_size||0;
+  const ABC=find(7)?.intersection_size||0;
+  // Top center, bottom-left, bottom-right
+  const x1=W/2-S/2, y1=20;
+  const x2=W/2-S+ov/2-10, y2=170;
+  const x3=W/2-ov/2+10, y3=170;
+
+  return`<div class="venn-container">
+  <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <defs>
+      <filter id="glow3a"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="${COLORS[0]}" flood-opacity=".25"/></filter>
+      <filter id="glow3b"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="${COLORS[1]}" flood-opacity=".25"/></filter>
+      <filter id="glow3c"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="${COLORS[2]}" flood-opacity=".25"/></filter>
+    </defs>
+    <rect x="${x1}" y="${y1}" width="${S}" height="${S}" rx="${rx}" fill="${COLORS[0]}" fill-opacity=".12" stroke="${COLORS[0]}" stroke-width="2" filter="url(#glow3a)"/>
+    <rect x="${x2}" y="${y2}" width="${S}" height="${S}" rx="${rx}" fill="${COLORS[1]}" fill-opacity=".12" stroke="${COLORS[1]}" stroke-width="2" filter="url(#glow3b)"/>
+    <rect x="${x3}" y="${y3}" width="${S}" height="${S}" rx="${rx}" fill="${COLORS[2]}" fill-opacity=".12" stroke="${COLORS[2]}" stroke-width="2" filter="url(#glow3c)"/>
+    <!-- Labels -->
+    <text x="${x1+S/2}" y="${y1-10}" class="venn-label" text-anchor="middle" fill="${COLORS[0]}">${shortName(data.files[0])}</text>
+    <text x="${x2-10}" y="${y2+S/2+5}" class="venn-label" text-anchor="end" fill="${COLORS[1]}">${shortName(data.files[1])}</text>
+    <text x="${x3+S+10}" y="${y3+S/2+5}" class="venn-label" text-anchor="start" fill="${COLORS[2]}">${shortName(data.files[2])}</text>
+    <!-- Only regions -->
+    <text x="${x1+S/2}" y="${y1+50}" class="venn-count-small" text-anchor="middle">${onlyA.toLocaleString()}</text>
+    <text x="${x2+50}" y="${y2+S-30}" class="venn-count-small" text-anchor="middle">${onlyB.toLocaleString()}</text>
+    <text x="${x3+S-50}" y="${y3+S-30}" class="venn-count-small" text-anchor="middle">${onlyC.toLocaleString()}</text>
+    <!-- Pairwise overlaps -->
+    <text x="${(x1+x1+S+x2)/3+20}" y="${(y1+S+y2)/2+5}" class="venn-count-small" text-anchor="middle" fill="${COLORS[0]}">${AB.toLocaleString()}</text>
+    <text x="${(x1+S+x3+x3)/3-20}" y="${(y1+S+y3)/2+5}" class="venn-count-small" text-anchor="middle" fill="${COLORS[2]}">${AC.toLocaleString()}</text>
+    <text x="${W/2}" y="${y2+S-15}" class="venn-count-small" text-anchor="middle" fill="${COLORS[1]}">${BC.toLocaleString()}</text>
+    <!-- Center (all three) -->
+    <text x="${W/2}" y="${(y1+S+y2+y2+S)/3-10}" class="venn-count" text-anchor="middle" fill="var(--green)">${ABC.toLocaleString()}</text>
+  </svg></div>`;
+}
+
+// ── UpSet-style bars ────────────────────────────────────────
+
+function renderUpset(data){
+  // Sort regions by intersection size descending, skip empty
+  const regions=data.regions.filter(r=>r.exclusive_size>0).sort((a,b)=>b.exclusive_size-a.exclusive_size);
+  if(!regions.length) return '';
+  const maxVal=Math.max(...regions.map(r=>r.exclusive_size));
+
+  let html=`<div class="upset-section"><div class="section"><h3>Exclusive Membership</h3></div>`;
+  for(const r of regions){
+    const pct=Math.max(2,(r.exclusive_size/maxVal)*100);
+    const color=r.sets.length===1?COLORS[data.files.indexOf(r.sets[0])%COLORS.length]:
+      r.sets.length===data.files.length?'var(--green)':'var(--accent)';
+    html+=`<div class="upset-bar-row">
+      <div class="upset-dots">`;
+    for(let i=0;i<data.files.length;i++){
+      const on=r.sets.includes(data.files[i]);
+      html+=`<div class="upset-dot${on?' on':''}" style="${on?'background:'+COLORS[i%COLORS.length]:''}"></div>`;
+    }
+    html+=`</div><div class="upset-bar-wrap"><div class="upset-bar" style="width:${pct}%;background:${color}"><span class="upset-bar-label">${r.exclusive_size.toLocaleString()}</span></div></div></div>`;
+  }
+  html+=`</div>`;
+  return html;
+}
+
+// ── Pairwise matrix ─────────────────────────────────────────
+
+function renderMatrix(data){
+  const n=data.files.length;
+  if(n<2) return '';
+  const maxVal=Math.max(...data.matrix.flat().filter((_,idx)=>{const r=Math.floor(idx/n),c=idx%n;return r!==c}));
+
+  function hexToRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return[r,g,b]}
+
+  function cellStyle(i,j,val){
+    const total=data.sizes[data.files[i]];
+    const pct=total?Math.round(val/total*100):0;
+    if(i===j){
+      const [r,g,b]=hexToRgb(COLORS[i%COLORS.length]);
+      return{bg:`rgba(${r},${g},${b},0.18)`,text:COLORS[i%COLORS.length],pct};
+    }
+    if(val===0) return{bg:'rgba(30,35,42,0.5)',text:'var(--border)',pct};
+    const t=maxVal?val/maxVal:0;
+    const [r1,g1,b1]=hexToRgb(COLORS[i%COLORS.length]);
+    const [r2,g2,b2]=hexToRgb(COLORS[j%COLORS.length]);
+    const mr=Math.round((r1+r2)/2),mg=Math.round((g1+g2)/2),mb=Math.round((b1+b2)/2);
+    const a=(t*0.45+0.08).toFixed(2);
+    return{bg:`rgba(${mr},${mg},${mb},${a})`,text:'#fff',pct};
+  }
+
+  let html=`<div class="matrix-section"><div class="section"><h3>Pairwise Overlap</h3></div>`;
+  html+=`<table class="matrix-table"><thead><tr><th></th>`;
+  for(let j=0;j<n;j++){
+    html+=`<th class="col-hdr" title="${shortName(data.files[j])}" style="color:${COLORS[j%COLORS.length]}">${shortName(data.files[j])}</th>`;
+  }
+  html+=`</tr></thead><tbody>`;
+  for(let i=0;i<n;i++){
+    html+=`<tr><th class="row-hdr" title="${shortName(data.files[i])}" style="color:${COLORS[i%COLORS.length]}">${shortName(data.files[i])}</th>`;
+    for(let j=0;j<n;j++){
+      const v=data.matrix[i][j];
+      const s=cellStyle(i,j,v);
+      html+=`<td class="matrix-cell" style="background:${s.bg};color:${s.text}" title="${shortName(data.files[i])} ∩ ${shortName(data.files[j])}: ${v.toLocaleString()}">
+        <span class="val">${v.toLocaleString()}</span>
+        <span class="pct">${s.pct}%</span>
+      </td>`;
+    }
+    html+=`</tr>`;
+  }
+  html+=`</tbody></table></div>`;
+  return html;
+}
+
+// ── SQL Query ────────────────────────────────────────────────
+
+let queryTables=[], queryHistory=[];
+let useDuckDb=false;
+let schemaMap={}; // table -> [{name,type}]
+
+function sampleQueries(t){
+  return [
+    {label:'Patient lookup',sql:`SELECT patient_number, patient_state, service_date\nFROM ${t}\nWHERE patient_number = 172507163`},
+    {label:'Cohort sizing',sql:`SELECT patient_state, COUNT(DISTINCT patient_number) AS patients\nFROM ${t}\nWHERE patient_state IN ('CA', 'NY', 'TX')\nGROUP BY patient_state`},
+    {label:'Patient rollup',sql:`SELECT patient_number,\n  COUNT(*) AS events,\n  MIN(service_date) AS first_event,\n  MAX(service_date) AS last_event\nFROM ${t}\nGROUP BY patient_number`},
+    {label:'Window fn',sql:`SELECT patient_number, service_date,\n  LAG(service_date) OVER (\n    PARTITION BY patient_number\n    ORDER BY service_date\n  ) AS prev_event\nFROM ${t}`},
+    {label:'Data quality',sql:`SELECT patient_number,\n  array_agg(DISTINCT patient_state) AS states\nFROM ${t}\nGROUP BY patient_number\nHAVING COUNT(DISTINCT patient_state) > 1`},
+  ];
+}
+let BENCHMARKS=[];
+
+async function showQuery(){
+  current=null;
+  renderFiles();
+  const main=document.getElementById('main');
+
+  main.innerHTML='<div class="query-view"><div class="query-empty"><div class="loading"></div></div></div>';
+
+  try{
+    const [r,sr]=await Promise.all([fetch('/api/tables'),fetch('/api/schema')]);
+    const j=await r.json();
+    queryTables=j.tables||[];
+    BENCHMARKS=queryTables.length?sampleQueries(queryTables[queryTables.length-1]):[];
+    const sd=await sr.json();
+    schemaMap={};
+    for(const t of (sd.schema||[])) schemaMap[t.table]=t.columns||[];
+  }catch(e){queryTables=[];BENCHMARKS=[];schemaMap={};}
+
+  renderQueryView();
+}
+
+function renderQueryView(lastResult){
+  const main=document.getElementById('main');
+  const mac=navigator.platform.includes('Mac');
+  const shortcut=mac?'\u2318\u21A9':'Ctrl+\u21A9';
+
+  let html=`<div class="query-view">`;
+
+  // Editor pane
+  html+=`<div class="query-editor-pane">`;
+  html+=`<div class="query-toolbar">
+    <h2><span class="q-icon">\u25B6</span> Query Console</h2>
+    <div class="spacer"></div>
+    <div class="duck-toggle${useDuckDb?' active':''}" onclick="toggleDuckDb()" title="DuckDB engine"><span>\u{1F986}</span><span class="duck-label">DuckDB</span></div>
+    <span class="query-shortcut">${shortcut}</span>
+    <button class="query-run" id="query-run-btn" onclick="runQuery()"><span class="play"></span>Execute</button>
+  </div>`;
+
+  // Schema strip
+  if(queryTables.length){
+    html+=`<div class="query-schema"><span class="schema-label">Tables</span>`;
+    for(const t of queryTables) html+=`<span class="table-chip" onclick="insertTable('${esc(t)}')"><span class="t-icon">\u25A6</span>${esc(t)}</span>`;
+    html+=`</div>`;
+  }
+
+  // Benchmark strip
+  html+=`<div class="query-benchmarks"><span class="bench-label">Benchmarks</span>`;
+  for(let i=0;i<BENCHMARKS.length;i++){
+    html+=`<span class="bench-chip" onclick="loadBenchmark(${i})">${BENCHMARKS[i].label}</span>`;
+  }
+  html+=`</div>`;
+
+  // Editor
+  const savedSql=document.getElementById('query-sql')?.value||'';
+  const placeholder=queryTables.length?`SELECT * FROM ${queryTables[queryTables.length-1]} LIMIT 100`:'SELECT ...';
+  html+=`<div class="query-editor-wrap"><textarea class="query-editor" id="query-sql" placeholder="${placeholder}" spellcheck="false">${esc(savedSql)}</textarea><div class="ac-dropdown" id="ac-dropdown"></div></div>`;
+
+  // History strip
+  if(queryHistory.length){
+    html+=`<div class="query-history"><span class="hist-label">Recent</span>`;
+    for(let i=queryHistory.length-1;i>=Math.max(0,queryHistory.length-8);i--){
+      const q=queryHistory[i];
+      html+=`<span class="hist-chip" onclick="loadHistory(${i})" title="${esc(q)}">${esc(q)}</span>`;
+    }
+    html+=`</div>`;
+  }
+
+  html+=`</div>`; // end editor pane
+
+  // Results pane
+  html+=`<div class="query-results" id="query-result">`;
+  if(lastResult){
+    html+=lastResult;
+  } else {
+    html+=`<div class="query-empty"><div class="q-empty-icon">\u25B7</div><div class="q-empty-text">Run a query to see results</div></div>`;
+  }
+  html+=`</div>`;
+
+  html+=`</div>`; // end query-view
+  main.innerHTML=html;
+
+  // Wire up keyboard + autocomplete
+  const editor=document.getElementById('query-sql');
+  const acDrop=document.getElementById('ac-dropdown');
+  let acItems=[], acIdx=-1;
+
+  function acClose(){acDrop.classList.remove('open');acDrop.innerHTML='';acItems=[];acIdx=-1;}
+
+  function acShow(items,replaceStart,replaceEnd){
+    if(!items.length){acClose();return;}
+    acItems=items;acIdx=0;
+    acDrop.innerHTML=items.map((it,i)=>
+      `<div class="ac-item${i===0?' active':''}" data-idx="${i}"><span>${esc(it.label)}</span>${it.detail?`<span class="ac-type">${esc(it.detail)}</span>`:''}</div>`
+    ).join('');
+    acDrop.classList.add('open');
+    // Position near cursor
+    const ta=editor;
+    const text=ta.value.slice(0,ta.selectionStart);
+    const lines=text.split('\n');
+    const lineH=parseFloat(getComputedStyle(ta).lineHeight)||20;
+    const padT=parseFloat(getComputedStyle(ta).paddingTop)||16;
+    const padL=parseFloat(getComputedStyle(ta).paddingLeft)||20;
+    acDrop.style.top=Math.min(padT+(lines.length)*lineH, ta.offsetHeight-10)+'px';
+    // Rough char-width estimate for horizontal positioning
+    const charW=7.8;
+    acDrop.style.left=Math.min(padL+lines[lines.length-1].length*charW, ta.offsetWidth-200)+'px';
+    // Store replace range
+    acDrop._replStart=replaceStart;acDrop._replEnd=replaceEnd;
+  }
+
+  function acAccept(){
+    if(acIdx<0||!acItems.length)return false;
+    const item=acItems[acIdx];
+    const s=acDrop._replStart,e=acDrop._replEnd;
+    // Insert suggestion + trailing space
+    const insert=item.label+' ';
+    editor.value=editor.value.slice(0,s)+insert+editor.value.slice(e);
+    editor.selectionStart=editor.selectionEnd=s+insert.length;
+    acClose();
+    // Immediately re-trigger for next suggestions
+    setTimeout(()=>acUpdate(),0);
+    return true;
+  }
+
+  function acNav(dir){
+    if(!acItems.length)return;
+    acIdx=(acIdx+dir+acItems.length)%acItems.length;
+    acDrop.querySelectorAll('.ac-item').forEach((el,i)=>el.classList.toggle('active',i===acIdx));
+    const active=acDrop.querySelector('.ac-item.active');
+    if(active)active.scrollIntoView({block:'nearest'});
+  }
+
+  // SQL keywords for autocomplete
+  const SQL_KW=['SELECT','FROM','WHERE','JOIN','LEFT JOIN','RIGHT JOIN','INNER JOIN',
+    'ON','GROUP BY','ORDER BY','HAVING','LIMIT','OFFSET','AS','AND','OR','NOT','IN',
+    'BETWEEN','LIKE','IS NULL','IS NOT NULL','COUNT','SUM','AVG','MIN','MAX',
+    'DISTINCT','CASE','WHEN','THEN','ELSE','END','ASC','DESC','INSERT INTO','UPDATE',
+    'SET','DELETE FROM','CREATE TABLE','DROP TABLE','UNION','UNION ALL','EXISTS'];
+
+  // Determine SQL context and suggestions
+  function acUpdate(){
+    const pos=editor.selectionStart;
+    const text=editor.value;
+    const before=text.slice(0,pos);
+
+    // Find the current word (scan backwards)
+    let wordStart=pos;
+    while(wordStart>0&&/[a-zA-Z0-9_.]/.test(text[wordStart-1]))wordStart--;
+    const partial=text.slice(wordStart,pos);
+
+    // Suppress in value positions: after LIMIT/OFFSET (expect number),
+    // after comparison operators, inside string literals, or if typing a number
+    const trimBefore=before.trimEnd();
+    if(/\b(LIMIT|OFFSET)\s*$/i.test(trimBefore)){acClose();return;}
+    if(/[=<>!]\s*$/.test(trimBefore)&&!partial){acClose();return;}
+    if((before.split("'").length-1)%2===1){acClose();return;} // inside single-quoted string
+    if(/^\d+$/.test(partial)){acClose();return;}
+
+    // Check for table.column pattern (dot context)
+    const dotMatch=partial.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\.(.*)$/);
+    if(dotMatch){
+      const tbl=dotMatch[1];const colPrefix=dotMatch[2].toLowerCase();
+      const cols=schemaMap[tbl];
+      if(cols){
+        const items=cols.filter(c=>c.name.toLowerCase().startsWith(colPrefix))
+          .map(c=>({label:tbl+'.'+c.name,detail:c.type}));
+        acShow(items,wordStart,pos);return;
+      }
+    }
+
+    // Determine context from preceding SQL
+    const stripped=before.toUpperCase().replace(/'[^']*'/g,'').replace(/\s+/g,' ').trimEnd();
+    const tableCtx=/\b(FROM|JOIN|INTO|UPDATE|TABLE)\s*$/.test(stripped);
+    const columnCtx=/\b(SELECT|WHERE|ON|SET|GROUP BY|ORDER BY|HAVING)\s*$/.test(stripped)||/,\s*$/.test(stripped);
+
+    let items=[];
+    const prefix=partial.toLowerCase();
+    const refTables=_extractReferencedTables(text);
+    // If no FROM clause yet, use all tables so columns are always available
+    const colTables=refTables.length?refTables:Object.keys(schemaMap);
+    const multiTbl=colTables.length>1;
+
+    if(tableCtx){
+      // After FROM/JOIN: show tables (all if no prefix, filtered if prefix)
+      items=queryTables.filter(t=>!prefix||t.toLowerCase().startsWith(prefix))
+        .map(t=>({label:t,detail:'table'}));
+    } else if(columnCtx){
+      // After SELECT/WHERE/comma: show all columns, then keywords
+      const seen=new Set();
+      for(const tbl of colTables){
+        for(const c of (schemaMap[tbl]||[])){
+          if((!prefix||c.name.toLowerCase().startsWith(prefix))&&!seen.has(c.name)){
+            seen.add(c.name);
+            items.push({label:c.name,detail:multiTbl?tbl:c.type});
+          }
+        }
+      }
+      // Also keywords that fit
+      for(const kw of SQL_KW){
+        if(prefix&&kw.toLowerCase().startsWith(prefix)) items.push({label:kw,detail:'keyword'});
+      }
+    } else if(prefix.length>=1){
+      // General context: keywords + columns + tables
+      const seen=new Set();
+      for(const kw of SQL_KW){
+        if(kw.toLowerCase().startsWith(prefix)){seen.add(kw.toLowerCase());items.push({label:kw,detail:'keyword'});}
+      }
+      for(const tbl of colTables){
+        for(const c of (schemaMap[tbl]||[])){
+          if(c.name.toLowerCase().startsWith(prefix)&&!seen.has(c.name.toLowerCase())){
+            seen.add(c.name.toLowerCase());
+            items.push({label:c.name,detail:multiTbl?tbl:c.type});
+          }
+        }
+      }
+      for(const t of queryTables){
+        if(t.toLowerCase().startsWith(prefix)&&!seen.has(t.toLowerCase())){
+          seen.add(t.toLowerCase());
+          items.push({label:t,detail:'table'});
+        }
+      }
+    } else {
+      // Empty prefix, no specific context: don't show anything
+      acClose();return;
+    }
+    // Don't show dropdown if only match is exactly what's typed
+    if(items.length===1&&items[0].label.toLowerCase()===prefix) items=[];
+    acShow(items,wordStart,pos);
+  }
+
+  // Extract table names referenced in FROM/JOIN clauses
+  function _extractReferencedTables(sql){
+    const tables=[];
+    const re=/\b(?:FROM|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)/gi;
+    let m;while((m=re.exec(sql))!==null){
+      if(schemaMap[m[1]]&&!tables.includes(m[1]))tables.push(m[1]);
+    }
+    return tables;
+  }
+
+  editor.addEventListener('keydown',e=>{
+    // Cmd/Ctrl+Enter always runs query — takes priority over everything
+    if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();acClose();runQuery();return;}
+    // Autocomplete navigation
+    if(acDrop.classList.contains('open')){
+      if(e.key==='ArrowDown'){e.preventDefault();acNav(1);return;}
+      if(e.key==='ArrowUp'){e.preventDefault();acNav(-1);return;}
+      if(e.key==='Tab'){if(acAccept()){e.preventDefault();return;}}
+      if(e.key==='Escape'){e.preventDefault();acClose();return;}
+      // Plain Enter closes autocomplete without accepting (just newline)
+      if(e.key==='Enter'){acClose();return;}
+    }
+    // Tab inserts spaces (when no autocomplete)
+    if(e.key==='Tab'&&!acDrop.classList.contains('open')){
+      e.preventDefault();
+      const s=editor.selectionStart,end=editor.selectionEnd;
+      editor.value=editor.value.slice(0,s)+'  '+editor.value.slice(end);
+      editor.selectionStart=editor.selectionEnd=s+2;
+    }
+  });
+  editor.addEventListener('input',()=>acUpdate());
+  editor.addEventListener('blur',()=>setTimeout(acClose,150));
+  acDrop.addEventListener('mousedown',e=>{
+    const item=e.target.closest('.ac-item');
+    if(item){e.preventDefault();acIdx=+item.dataset.idx;acAccept();editor.focus();}
+  });
+
+  editor.focus();
+  // Restore cursor position
+  if(savedSql) editor.selectionStart=editor.selectionEnd=savedSql.length;
+}
+
+function insertTable(name){
+  const editor=document.getElementById('query-sql');
+  if(!editor) return;
+  const start=editor.selectionStart, end=editor.selectionEnd;
+  const val=editor.value;
+  editor.value=val.slice(0,start)+name+val.slice(end);
+  editor.selectionStart=editor.selectionEnd=start+name.length;
+  editor.focus();
+}
+
+function loadHistory(idx){
+  const editor=document.getElementById('query-sql');
+  if(!editor||!queryHistory[idx]) return;
+  editor.value=queryHistory[idx];
+  editor.focus();
+  editor.selectionStart=editor.selectionEnd=editor.value.length;
+}
+
+function loadBenchmark(idx){
+  const editor=document.getElementById('query-sql');
+  if(!editor||!BENCHMARKS[idx]) return;
+  editor.value=BENCHMARKS[idx].sql;
+  editor.focus();
+  editor.selectionStart=editor.selectionEnd=editor.value.length;
+}
+
+function toggleDuckDb(){
+  useDuckDb=!useDuckDb;
+  // Re-render preserving current result
+  const resultHtml=document.getElementById('query-result')?.innerHTML||'';
+  renderQueryView(resultHtml);
+}
+
+async function runQuery(){
+  const editor=document.getElementById('query-sql');
+  const btn=document.getElementById('query-run-btn');
+  const result=document.getElementById('query-result');
+  if(!editor||!btn||!result) return;
+  const sql=editor.value.trim();
+  if(!sql) return;
+
+  btn.disabled=true;
+  btn.classList.add('running');
+  btn.innerHTML='<div class="loading" style="width:10px;height:10px;border-width:1.5px"></div> Running';
+  result.innerHTML='<div class="query-empty"><div class="loading"></div><div class="q-empty-text">Executing query...</div></div>';
+
+  const t0=performance.now();
+  try{
+    const r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sql,limit:500,engine:useDuckDb?'duckdb':'datafusion'})});
+    const data=await r.json();
+    const clientMs=Math.round(performance.now()-t0);
+    if(!r.ok){
+      result.innerHTML=`<div class="query-error">${esc(data.detail||'Query failed')}</div>`;
+      return;
+    }
+    // Add to history (dedup)
+    if(!queryHistory.length||queryHistory[queryHistory.length-1]!==sql) queryHistory.push(sql);
+    renderQueryResult(data,clientMs);
+  }catch(e){
+    result.innerHTML=`<div class="query-error">${esc(e.message)}</div>`;
+  }finally{
+    btn.disabled=false;
+    btn.classList.remove('running');
+    btn.innerHTML='<span class="play"></span>Execute';
+    // Re-render to show history without losing results
+    const resultHtml=result.innerHTML;
+    renderQueryView(resultHtml);
+  }
+}
+
+function _renderRowHtml(row,cols,idx){
+  let h=`<tr><td class="row-num">${idx+1}</td>`;
+  for(const c of cols){
+    const v=row[c];
+    if(v===null||v===undefined){
+      h+=`<td class="null">null</td>`;
+    } else if(typeof v==='number'){
+      h+=`<td style="color:var(--accent)" title="${v}">${!Number.isInteger(v)?v.toFixed(4):v}</td>`;
+    } else {
+      h+=`<td title="${esc(String(v))}">${esc(String(v))}</td>`;
+    }
+  }
+  return h+`</tr>`;
+}
+
+function renderQueryResult(data,clientMs){
+  const el=document.getElementById('query-result');
+  let html='';
+
+  // Speed classification
+  const ms=data.elapsed_ms;
+  const speed=ms<50?{color:'var(--green)',label:'fast'}:ms<500?{color:'var(--accent)',label:'ok'}:{color:'var(--yellow)',label:'slow'};
+
+  // Status bar
+  html+=`<div class="query-status">
+    <div class="stat"><span class="speed-dot" style="background:${speed.color}"></span><span class="sv">${data.total_rows.toLocaleString()}</span> rows</div>
+    <div class="stat-sep"></div>
+    <div class="stat"><span class="sv">${data.columns.length}</span> columns</div>
+    <div class="stat-sep"></div>
+    <div class="stat">engine <span class="sv time">${ms}ms</span></div>
+    <div class="stat-sep"></div>
+    <div class="stat">total <span class="sv time">${clientMs}ms</span></div>
+    ${data.catalog_files?`<div class="stat-sep"></div><div class="stat"><span class="sv">${data.catalog_files}</span> files</div>`:''}
+    ${data.catalog_rows?`<div class="stat-sep"></div><div class="stat">\u2248<span class="sv">${data.catalog_rows.toLocaleString()}</span> total rows</div>`:''}
+    ${data.engine==='duckdb'?`<div class="stat-sep"></div><div class="stat" style="color:var(--green)">\u{1F986} duckdb</div>`:''}
+    ${data.returned_rows<data.total_rows?`<div class="stat-sep"></div><div class="stat" style="color:var(--yellow)">truncated to ${data.returned_rows.toLocaleString()}</div>`:''}
+  </div>`;
+
+  if(!data.rows.length){
+    html+=`<div class="query-empty"><div class="q-empty-text">Query returned 0 rows</div></div>`;
+    el.innerHTML=html;
+    return;
+  }
+
+  // Data table — render first 50 rows immediately, then append rest in chunks
+  const INITIAL=50, CHUNK=100;
+  html+=`<div class="query-result-data"><div class="data-wrap"><table class="data-table"><thead><tr>`;
+  html+=`<th class="row-num">#</th>`;
+  for(const c of data.columns) html+=`<th>${esc(c)}</th>`;
+  html+=`</tr></thead><tbody id="qr-tbody">`;
+  const end=Math.min(INITIAL,data.rows.length);
+  for(let i=0;i<end;i++) html+=_renderRowHtml(data.rows[i],data.columns,i);
+  html+=`</tbody></table></div></div>`;
+  el.innerHTML=html;
+
+  // Append remaining rows in async chunks to avoid blocking the main thread
+  if(data.rows.length>INITIAL){
+    let offset=INITIAL;
+    function appendChunk(){
+      const tbody=document.getElementById('qr-tbody');
+      if(!tbody) return;
+      const n=Math.min(CHUNK,data.rows.length-offset);
+      let chunk='';
+      for(let i=0;i<n;i++) chunk+=_renderRowHtml(data.rows[offset+i],data.columns,offset+i);
+      tbody.insertAdjacentHTML('beforeend',chunk);
+      offset+=n;
+      if(offset<data.rows.length) requestAnimationFrame(appendChunk);
+    }
+    requestAnimationFrame(appendChunk);
+  }
+}
+
+// ── Benchmark ────────────────────────────────────────────────
+
+async function showBenchmark(){
+  current=null;
+  renderFiles();
+  const main=document.getElementById('main');
+  main.innerHTML=`<div class="bench-view">
+    <div class="bench-head"><h2>Performance Benchmark</h2>
+      <button class="bench-run-btn" id="bench-btn" onclick="runBenchmark()">Run Benchmark</button>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px">
+      Benchmarks the real SDK path — <code>CohortWriter.write(codec=...)</code> and <code>CohortReader[label]</code> — across Parquet, Arrow IPC, and Feather codecs.
+      Raw Python-side format comparisons are available in the collapsed section below.
+    </p>
+    <div id="bench-results">
+      <div style="text-align:center;padding:40px;color:var(--muted)">
+        <p style="font-size:14px;margin-bottom:8px">Click "Run Benchmark" to measure performance</p>
+        <p style="font-size:12px">Tests: SDK write, SDK read, inspect, SQL COUNT, SQL filter, file size</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function runBenchmark(){
+  const btn=document.getElementById('bench-btn');
+  const res=document.getElementById('bench-results');
+  if(!btn||!res) return;
+  btn.disabled=true;
+  btn.textContent='Running...';
+  res.innerHTML='<div style="text-align:center;padding:40px"><div class="loading"></div><div style="margin-top:12px;color:var(--muted);font-size:13px">Running benchmarks...</div></div>';
+
+  try{
+    const r=await fetch('/api/benchmark',{method:'POST'});
+    const data=await r.json();
+    if(!r.ok){res.innerHTML=`<div style="color:var(--red)">${esc(data.detail||'Benchmark failed')}</div>`;return}
+    renderBenchmarkResult(data);
+  }catch(e){
+    res.innerHTML=`<div style="color:var(--red)">Error: ${esc(e.message)}</div>`;
+  }finally{
+    btn.disabled=false;
+    btn.textContent='Run Benchmark';
+  }
+}
+
+function _renderGridTable(codecs, useCases, grid, winners, speedups, codecLabels){
+  let html=`<div style="overflow-x:auto;margin:20px 0">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border)">
+          <th style="text-align:left;padding:12px 16px;color:var(--muted)">Operation</th>`;
+  codecs.forEach(c=>{
+    const label=codecLabels?.[c]||c;
+    html+=`<th style="text-align:center;padding:12px 16px;min-width:100px">
+      <div style="font-weight:700">${esc(label)}</div>
+    </th>`;
+  });
+  html+=`</tr></thead><tbody>`;
+
+  useCases.forEach(uc=>{
+    const winnerId=winners[uc.id];
+    html+=`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:12px 16px">
+        <div style="font-weight:600">${esc(uc.name)}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(uc.description)}</div>
+      </td>`;
+
+    codecs.forEach(c=>{
+      const val=grid[c]?.[uc.id];
+      const isWinner=winnerId===c;
+      const speedup=speedups[c]?.[uc.id];
+      const applies=uc.applies_to?uc.applies_to.includes(c):true;
+
+      if(!applies||val===undefined||val===null){
+        html+=`<td style="text-align:center;padding:12px 16px;color:var(--muted);background:var(--bg)">
+          <div style="font-size:14px">\u2014</div><div style="font-size:10px">N/A</div>
+        </td>`;
+        return;
+      }
+
+      const valStr=val<1?val.toFixed(4):val.toFixed(1);
+      const bgColor=isWinner?'rgba(63,185,80,0.15)':'transparent';
+      const textColor=isWinner?'var(--green)':'var(--text)';
+
+      html+=`<td style="text-align:center;padding:12px 16px;background:${bgColor}">
+        <div style="font-size:16px;font-weight:700;color:${textColor}">${valStr}</div>
+        <div style="font-size:10px;color:var(--muted)">${esc(uc.unit)}</div>`;
+
+      if(speedup&&speedup!==1&&c!=='parquet'){
+        const speedupColor=speedup>1?'var(--green)':'var(--red)';
+        const arrow=speedup>1?'\u2191':'\u2193';
+        html+=`<div style="font-size:10px;color:${speedupColor}">${arrow} ${speedup.toFixed(1)}x</div>`;
+      }
+      if(isWinner){
+        html+=`<div style="font-size:10px;color:var(--green);font-weight:600">\u2713 BEST</div>`;
+      }
+      html+=`</td>`;
+    });
+    html+=`</tr>`;
+  });
+
+  html+=`</tbody></table></div>`;
+  return html;
+}
+
+function renderBenchmarkResult(data){
+  const summary=data.summary||{};
+  const sdk=data.sdk||{};
+  const sdkCodecs=sdk.codecs||[];
+  const sdkUseCases=sdk.use_cases||[];
+  const sdkGrid=sdk.grid||{};
+  const sdkWinners=sdk.winners||{};
+  const sdkSpeedups=sdk.speedups||{};
+
+  // Raw format data (secondary)
+  const formats=data.formats||[];
+  const rawUseCases=data.use_cases||[];
+  const rawGrid=data.grid||{};
+  const rawWinners=data.winners||{};
+  const rawSpeedups=data.speedups||{};
+
+  let html='';
+
+  // Summary cards
+  html+=`<div class="bench-summary">
+    <div class="bench-summary-card"><div class="value">${summary.test_rows?.toLocaleString()||'\u2014'}</div><div class="label">Test Rows</div></div>
+    <div class="bench-summary-card"><div class="value">${summary.num_columns||'\u2014'}</div><div class="label">Columns</div></div>
+    <div class="bench-summary-card"><div class="value">${sdkCodecs.length}</div><div class="label">SDK Codecs</div></div>
+    <div class="bench-summary-card"><div class="value">${sdkUseCases.length}</div><div class="label">SDK Benchmarks</div></div>
+  </div>`;
+
+  // ── Section A: SDK Performance (primary) ──
+  html+=`<div style="margin:24px 0">
+    <h3 style="margin:0 0 4px 0;font-size:16px">SDK Performance — Real Application Path</h3>
+    <p style="color:var(--muted);font-size:12px;margin:0 0 12px 0">
+      These benchmarks use <code>CohortWriter.write(codec=...)</code> and <code>CohortReader[label]</code>.
+      This is what your application actually experiences.
+    </p>`;
+
+  const codecLabels={parquet:'Parquet',arrow_ipc:'Arrow IPC',feather:'Feather'};
+  html+=_renderGridTable(sdkCodecs, sdkUseCases, sdkGrid, sdkWinners, sdkSpeedups, codecLabels);
+
+  // Narrative callout
+  const ipcRead=sdkGrid.arrow_ipc?.sdk_read;
+  const pqRead=sdkGrid.parquet?.sdk_read;
+  const ipcSize=sdkGrid.arrow_ipc?.file_size;
+  const pqSize=sdkGrid.parquet?.file_size;
+  const testRows=summary.test_rows||0;
+
+  if(ipcRead&&pqRead&&ipcSize&&pqSize){
+    const readSpeedup=(pqRead/ipcRead).toFixed(1);
+    const sizeRatio=(ipcSize/pqSize).toFixed(1);
+    html+=`<div style="margin:16px 0;padding:16px 20px;background:linear-gradient(135deg,rgba(88,166,255,0.1),rgba(63,185,80,0.1));border:1px solid var(--border);border-radius:10px">
+      <div style="font-size:13px;line-height:1.6">
+        For your <strong>${testRows.toLocaleString()}</strong> row cohort,
+        Arrow IPC reads are <strong>${readSpeedup}x</strong> ${readSpeedup>1?'faster':'slower'} than Parquet (skips decompression).
+        Parquet is <strong>${sizeRatio}x</strong> smaller on disk.
+        Choose IPC when query latency matters, Parquet when storage matters.
+      </div>
+    </div>`;
+  }
+
+  html+=`</div>`;
+
+  // ── Section B: Raw Format Comparison (secondary, collapsed) ──
+  if(formats.length>0){
+    html+=`<details style="margin:24px 0">
+      <summary style="cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);padding:8px 0">
+        Raw Format Comparison (Python-side decode)
+      </summary>
+      <div style="margin-top:12px">
+        <p style="color:var(--muted);font-size:12px;margin:0 0 12px 0">
+          These benchmarks use Python-side <code>pq.read_table()</code> / <code>ipc.open_file()</code> writers and readers, not the Rust SDK path.
+        </p>`;
+
+    // Format description chips
+    html+=`<div style="margin:8px 0 16px 0;display:flex;gap:12px;flex-wrap:wrap">`;
+    formats.forEach(f=>{
+      html+=`<div style="font-size:12px"><strong>${esc(f.extension)}</strong> <span style="color:var(--muted)">\u2014 ${esc(f.description)}</span></div>`;
+    });
+    html+=`</div>`;
+
+    // Raw grid — codecs are format IDs, labels are extensions
+    const rawCodecIds=formats.map(f=>f.id);
+    const rawCodecLabels={};
+    formats.forEach(f=>{rawCodecLabels[f.id]=f.extension;});
+    html+=_renderGridTable(rawCodecIds, rawUseCases, rawGrid, rawWinners, rawSpeedups, rawCodecLabels);
+
+    // Raw winner summary
+    html+=`<div style="margin:16px 0;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--muted)">Winners</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">`;
+    rawUseCases.forEach(uc=>{
+      const wId=rawWinners[uc.id];
+      const wFmt=formats.find(f=>f.id===wId);
+      html+=`<div style="padding:8px;background:var(--bg);border-radius:4px">
+        <div style="font-size:11px;color:var(--muted)">${esc(uc.name)}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--green)">${wFmt?esc(wFmt.extension):'\u2014'}</div>
+      </div>`;
+    });
+    html+=`</div></div>`;
+
+    html+=`</div></details>`;
+  }
+
+  document.getElementById('bench-results').innerHTML=html;
+}
+
+// ── Lineage DAG ──────────────────────────────────────────────
+
+const DAG_COLORS={
+  source_system:{fill:'rgba(210,153,34,0.2)',stroke:'var(--yellow)'},
+  source_table:{fill:'rgba(139,148,158,0.15)',stroke:'var(--muted)'},
+  cohort:{fill:'rgba(88,166,255,0.2)',stroke:'var(--accent)'},
+  derived:{fill:'rgba(63,185,80,0.2)',stroke:'var(--green)'},
+};
+
+function layoutDAG(nodes,edges,containerWidth){
+  const layers={source_system:0,source_table:1,cohort:2,derived:3};
+  const layerNodes=[[],[],[],[]];
+  nodes.forEach(n=>layerNodes[layers[n.type]||2].push(n));
+
+  const nodeW=160,nodeH=56,layerH=120,gapX=20;
+  layerNodes.forEach((layer,li)=>{
+    const totalW=layer.length*nodeW+(layer.length-1)*gapX;
+    const startX=Math.max(10,(containerWidth-totalW)/2);
+    layer.forEach((node,ni)=>{
+      node.x=startX+ni*(nodeW+gapX);
+      node.y=40+li*layerH;
+      node.w=nodeW;
+      node.h=nodeH;
+    });
+  });
+  const totalH=40+4*layerH;
+  const maxRight=Math.max(...nodes.map(n=>(n.x||0)+(n.w||0)))+20;
+  return{nodes,edges,width:Math.max(containerWidth,maxRight),height:totalH};
+}
+
+function renderDAG(layout){
+  const{nodes,edges,width,height}=layout;
+  const nodeMap={};
+  nodes.forEach(n=>nodeMap[n.id]=n);
+
+  let svg=`<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
+  svg+=`<defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--border)"/></marker></defs>`;
+
+  // Edges
+  for(const e of edges){
+    const src=nodeMap[e.source],tgt=nodeMap[e.target];
+    if(!src||!tgt) continue;
+    const sx=src.x+src.w/2,sy=src.y+src.h;
+    const tx=tgt.x+tgt.w/2,ty=tgt.y;
+    const mid=(sy+ty)/2;
+    svg+=`<path d="M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}" fill="none" stroke="var(--border)" stroke-width="1.5" marker-end="url(#arrow)"/>`;
+    // Edge label
+    const lx=(sx+tx)/2,ly=mid-6;
+    if(e.operation) svg+=`<text x="${lx}" y="${ly}" text-anchor="middle" fill="var(--muted)" font-size="9" font-style="italic" font-family="-apple-system,system-ui,sans-serif">${esc(e.operation)}</text>`;
+  }
+
+  // Nodes
+  for(const n of nodes){
+    if(n.x==null) continue;
+    const c=DAG_COLORS[n.type]||DAG_COLORS.cohort;
+    const isClickable=n.type==='cohort'||n.type==='derived';
+    svg+=`<g class="dag-node" data-id="${esc(n.id)}" ${isClickable?`onclick="selectFile('${esc(n.id)}')"`:''}
+      onmouseenter="dagTip(this,true)" onmouseleave="dagTip(this,false)">`;
+    svg+=`<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="8" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>`;
+    svg+=`<text x="${n.x+n.w/2}" y="${n.y+22}" text-anchor="middle" fill="var(--text)" font-size="12" font-weight="600" font-family="-apple-system,system-ui,sans-serif">${esc(n.label.length>18?n.label.slice(0,16)+'…':n.label)}</text>`;
+    if(n.rows) svg+=`<text x="${n.x+n.w/2}" y="${n.y+40}" text-anchor="middle" fill="var(--muted)" font-size="10" font-family="-apple-system,system-ui,sans-serif">${n.rows.toLocaleString()} rows</text>`;
+    svg+=`</g>`;
+  }
+  svg+=`</svg>`;
+  return svg;
+}
+
+function dagTip(el,show){
+  const tip=document.getElementById('dag-tip');
+  if(!tip) return;
+  if(!show){tip.style.opacity='0';return}
+  const id=el.dataset.id;
+  const f=files.find(x=>x.name===id);
+  let html=`<strong>${esc(id)}</strong>`;
+  if(f){
+    if(f.cohort_name) html+=`<div style="color:var(--accent)">${esc(f.cohort_name)}</div>`;
+    if(f.num_rows!=null) html+=`<div>${f.num_rows.toLocaleString()} rows</div>`;
+    if(f.selectors&&f.selectors.length) html+=`<div style="color:var(--muted);font-size:10px">${f.selectors.map(s=>s.field+'='+s.values.join(',')).join(' · ')}</div>`;
+  }
+  tip.innerHTML=html;
+  tip.style.opacity='1';
+  const rect=el.querySelector('rect');
+  if(rect){
+    const x=+rect.getAttribute('x'),y=+rect.getAttribute('y');
+    tip.style.left=(x+80-tip.offsetWidth/2)+'px';
+    tip.style.top=(y-tip.offsetHeight-10)+'px';
+  }
+}
+
+async function showLineage(){
+  current=null;
+  renderFiles();
+  const main=document.getElementById('main');
+  main.innerHTML='<div class="lineage-view"><div style="text-align:center;padding:60px"><div class="loading"></div><div style="margin-top:12px;color:var(--muted);font-size:13px">Building lineage graph...</div></div></div>';
+
+  try{
+    const r=await fetch('/api/lineage');
+    const data=await r.json();
+    const containerW=main.clientWidth-56;
+    const layout=layoutDAG(data.nodes,data.edges,containerW);
+    let html='<div class="lineage-view">';
+    html+='<div class="lineage-head"><h2>Data Lineage</h2></div>';
+    html+=`<div class="dag-container" style="position:relative">${renderDAG(layout)}<div class="dag-tooltip" id="dag-tip"></div></div>`;
+    html+=`<div class="dag-legend">
+      <div class="dleg"><div class="dswatch" style="background:rgba(210,153,34,0.4)"></div>Source System</div>
+      <div class="dleg"><div class="dswatch" style="background:rgba(139,148,158,0.3)"></div>Source Table</div>
+      <div class="dleg"><div class="dswatch" style="background:rgba(88,166,255,0.4)"></div>Cohort</div>
+      <div class="dleg"><div class="dswatch" style="background:rgba(63,185,80,0.4)"></div>Derived</div>
+    </div>`;
+    html+='</div>';
+    main.innerHTML=html;
+  }catch(e){
+    main.innerHTML=`<div class="lineage-view"><div style="border:1px solid var(--red);border-radius:8px;padding:16px;color:var(--red);font-size:13px">Error: ${esc(e.message)}</div></div>`;
+  }
+}
+
+// ── Stats Dashboard ──────────────────────────────────────────
+
+function renderHistogram(data, {title='', color='var(--accent)', width=500, height, maxBars=15}={}){
+  const items=data.slice(0,maxBars);
+  if(!items.length) return '<div style="color:var(--muted);font-size:12px;padding:8px">No data</div>';
+  const barH=28, gap=4, labelW=120, valW=70, pad={t:0,b:0};
+  const h=height||(items.length*(barH+gap)+pad.t+pad.b);
+  const maxVal=Math.max(...items.map(d=>d.value),1);
+  const barArea=width-labelW-valW-20;
+
+  let svg=`<svg width="${width}" height="${h}" viewBox="0 0 ${width} ${h}">`;
+  items.forEach((d,i)=>{
+    const y=pad.t+i*(barH+gap);
+    const bw=Math.max(2,(d.value/maxVal)*barArea);
+    // label
+    svg+=`<text x="${labelW-8}" y="${y+barH/2+4}" text-anchor="end" fill="var(--muted)" font-size="11" font-family="-apple-system,system-ui,sans-serif">${esc(String(d.label))}</text>`;
+    // bar
+    svg+=`<rect x="${labelW}" y="${y+2}" width="${bw}" height="${barH-4}" rx="3" fill="${color}" opacity=".85"/>`;
+    // value
+    svg+=`<text x="${labelW+bw+8}" y="${y+barH/2+4}" fill="var(--text)" font-size="11" font-weight="600" font-family="-apple-system,system-ui,sans-serif">${d.value.toLocaleString()}</text>`;
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+
+function renderSummaryCards(summary){
+  const cards=[
+    {label:'Unique Patients',value:summary.unique_patients?.toLocaleString()||'—',color:'var(--accent)'},
+    {label:'Total Rows',value:summary.total_rows?.toLocaleString()||'—',color:'var(--green)'},
+    {label:'Date Range',value:summary.date_min&&summary.date_max?`${summary.date_min} — ${summary.date_max}`:'—',color:'var(--muted)'},
+    {label:'Unique Dx Codes',value:summary.unique_dx?.toLocaleString()||'—',color:'var(--yellow)'},
+    {label:'Unique Procedures',value:summary.unique_procs?.toLocaleString()||'—',color:'var(--accent)'},
+    {label:'Unique States',value:summary.unique_states?.toLocaleString()||'—',color:'var(--green)'},
+  ];
+  return`<div class="stats-cards">${cards.map(c=>`<div class="stat-card"><div class="value" style="color:${c.color}">${c.value}</div><div class="label">${c.label}</div></div>`).join('')}</div>`;
+}
+
+async function showStats(){
+  current=null;
+  renderFiles();
+  const main=document.getElementById('main');
+  const q=(sql)=>fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sql,limit:500})}).then(r=>r.json());
+
+  // Resolve table name
+  const tablesR=await fetch('/api/tables').then(r=>r.json());
+  const tbl=(tablesR.tables&&tablesR.tables[tablesR.tables.length-1])||'patients_v1';
+
+  // Render shell immediately with loading placeholders
+  let fileHtml='';
+  for(const f of files){
+    const rows=f.num_rows!=null?f.num_rows.toLocaleString():'—';
+    const mods=f.datasets?f.datasets.length:0;
+    const sels=f.selectors?f.selectors.length:0;
+    const cohort=f.cohort_name||'';
+    fileHtml+=`<div class="stats-file-card" onclick="selectFile('${esc(f.name)}')">
+      <div class="sfc-name">${esc(f.name)}</div>
+      ${cohort?`<div class="sfc-cohort">${esc(cohort)}</div>`:''}
+      <div class="sfc-stats"><span>${rows}</span> rows · ${mods} datasets · ${sels} selectors</div>
+    </div>`;
+  }
+
+  const _loader='<div style="text-align:center;padding:20px"><div class="loading"></div></div>';
+  main.innerHTML=`<div class="stats-view">
+    <div class="stats-head"><h2>Aggregate Statistics</h2></div>
+    <div id="stats-summary">${_loader}</div>
+    <div class="stats-charts">
+      <div class="chart-panel"><div class="chart-title">Age Distribution</div><div id="chart-age">${_loader}</div></div>
+      <div class="chart-panel"><div class="chart-title">Top Diagnosis Codes</div><div id="chart-dx">${_loader}</div></div>
+      <div class="chart-panel"><div class="chart-title">Patients by State</div><div id="chart-state">${_loader}</div></div>
+      <div class="chart-panel"><div class="chart-title">Claims per Patient</div><div id="chart-claims">${_loader}</div></div>
+    </div>
+    <div class="stats-files"><h3>Per-File Comparison</h3><div class="stats-file-grid">${fileHtml}</div></div>
+  </div>`;
+
+  // Fire all 5 queries in parallel, render each as it completes
+  const _err=(e)=>`<div style="color:var(--red);font-size:12px;padding:8px">${esc(e.message||String(e))}</div>`;
+
+  q(`SELECT count(*) AS total_rows,
+      count(DISTINCT patient_number) AS unique_patients,
+      min(service_date) AS date_min, max(service_date) AS date_max,
+      count(DISTINCT primary_header_diagnosis_code) AS unique_dx,
+      count(DISTINCT procedure_code) AS unique_procs,
+      count(DISTINCT patient_state) AS unique_states
+    FROM ${tbl}`)
+    .then(r=>{const el=document.getElementById('stats-summary');if(el)el.innerHTML=renderSummaryCards(r.rows&&r.rows[0]||{})})
+    .catch(e=>{const el=document.getElementById('stats-summary');if(el)el.innerHTML=_err(e)});
+
+  q(`SELECT CASE
+      WHEN 2026 - extract(year FROM patient_yob_date_uncertified_top_coded) < 10 THEN '0-9'
+      WHEN 2026 - extract(year FROM patient_yob_date_uncertified_top_coded) < 20 THEN '10-19'
+      WHEN 2026 - extract(year FROM patient_yob_date_uncertified_top_coded) < 30 THEN '20-29'
+      WHEN 2026 - extract(year FROM patient_yob_date_uncertified_top_coded) < 40 THEN '30-39'
+      WHEN 2026 - extract(year FROM patient_yob_date_uncertified_top_coded) < 50 THEN '40-49'
+      WHEN 2026 - extract(year FROM patient_yob_date_uncertified_top_coded) < 60 THEN '50-59'
+      WHEN 2026 - extract(year FROM patient_yob_date_uncertified_top_coded) < 70 THEN '60-69'
+      WHEN 2026 - extract(year FROM patient_yob_date_uncertified_top_coded) < 80 THEN '70-79'
+      ELSE '80+'
+    END AS age_bin, count(DISTINCT patient_number) AS n
+    FROM ${tbl} WHERE patient_yob_date_uncertified_top_coded IS NOT NULL
+    GROUP BY age_bin ORDER BY age_bin`)
+    .then(r=>{const el=document.getElementById('chart-age');if(el)el.innerHTML=renderHistogram((r.rows||[]).map(r=>({label:r.age_bin,value:r.n})),{color:'var(--accent)',width:460})})
+    .catch(e=>{const el=document.getElementById('chart-age');if(el)el.innerHTML=_err(e)});
+
+  q(`SELECT primary_header_diagnosis_code AS code, count(*) AS n
+    FROM ${tbl} WHERE primary_header_diagnosis_code IS NOT NULL
+    GROUP BY code ORDER BY n DESC LIMIT 10`)
+    .then(r=>{const el=document.getElementById('chart-dx');if(el)el.innerHTML=renderHistogram((r.rows||[]).map(r=>({label:r.code,value:r.n})),{color:'var(--green)',width:460})})
+    .catch(e=>{const el=document.getElementById('chart-dx');if(el)el.innerHTML=_err(e)});
+
+  q(`SELECT patient_state, count(DISTINCT patient_number) AS patients
+    FROM ${tbl} WHERE patient_state IS NOT NULL
+    GROUP BY patient_state ORDER BY patients DESC LIMIT 15`)
+    .then(r=>{const el=document.getElementById('chart-state');if(el)el.innerHTML=renderHistogram((r.rows||[]).map(r=>({label:r.patient_state,value:r.patients})),{color:'var(--accent)',width:460})})
+    .catch(e=>{const el=document.getElementById('chart-state');if(el)el.innerHTML=_err(e)});
+
+  q(`SELECT claims_bucket, count(*) AS patient_count FROM (
+      SELECT CASE WHEN cnt <= 1 THEN '1' WHEN cnt <= 5 THEN '2-5'
+        WHEN cnt <= 10 THEN '6-10' WHEN cnt <= 25 THEN '11-25'
+        WHEN cnt <= 50 THEN '26-50' ELSE '50+' END AS claims_bucket
+      FROM (SELECT patient_number, count(*) AS cnt FROM ${tbl} GROUP BY patient_number)
+    ) GROUP BY claims_bucket`)
+    .then(r=>{const el=document.getElementById('chart-claims');if(el)el.innerHTML=renderHistogram((r.rows||[]).map(r=>({label:r.claims_bucket,value:r.patient_count})),{color:'var(--yellow)',width:460})})
+    .catch(e=>{const el=document.getElementById('chart-claims');if(el)el.innerHTML=_err(e)});
+}
+
+function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function notify(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2000)}
+
+/* ── Diff / Revision Comparison ── */
+
+function reconstructSelectors(initialSelectors, revisions, targetRevision){
+  let sels=initialSelectors.map(s=>({...s}));
+  for(const rev of revisions){
+    if(rev.revision>targetRevision) break;
+    if(rev.revision<=1) continue; // r1 is initial, no deltas to apply
+    for(const d of rev.deltas||[]){
+      if(d.action==='add'&&d.selector){
+        sels.push({...d.selector});
+      } else if(d.action==='remove'){
+        sels=sels.filter(s=>s.selector_id!==d.selector_id);
+      } else if(d.action==='modify'){
+        const idx=sels.findIndex(s=>s.selector_id===d.selector_id);
+        if(idx>=0&&d.field&&d.after!==undefined){
+          sels[idx]={...sels[idx],[d.field]:d.after};
+        }
+      }
+    }
+  }
+  return sels;
+}
+
+function diffSelectors(selsA, selsB){
+  const mapA=new Map(selsA.map(s=>[s.selector_id,s]));
+  const mapB=new Map(selsB.map(s=>[s.selector_id,s]));
+  const result=[];
+  for(const [id,sel] of mapB){
+    if(!mapA.has(id)){
+      result.push({type:'added',selector:sel,changes:[]});
+    } else {
+      const old=mapA.get(id);
+      const changes=[];
+      for(const k of ['field','operator','values','label','is_exclusion','code_system']){
+        const a=JSON.stringify(old[k]),b=JSON.stringify(sel[k]);
+        if(a!==b) changes.push({field:k,before:old[k],after:sel[k]});
+      }
+      if(changes.length) result.push({type:'modified',selector:sel,selectorOld:old,changes});
+      else result.push({type:'unchanged',selector:sel,changes:[]});
+    }
+  }
+  for(const [id,sel] of mapA){
+    if(!mapB.has(id)) result.push({type:'removed',selector:sel,changes:[]});
+  }
+  // Sort: added, modified, removed, unchanged
+  const order={added:0,modified:1,removed:2,unchanged:3};
+  result.sort((a,b)=>order[a.type]-order[b.type]);
+  return result;
+}
+
+function fmtSelector(sel){
+  const vals=Array.isArray(sel.values)?sel.values.join(', '):sel.values;
+  return `<span class="field">${esc(sel.field)}</span> <span class="op">${esc(sel.operator)}</span> <span class="vals">[${esc(vals)}]</span>`;
+}
+
+// ── Similarity View ──────────────────────────────────────────
+
+let simState={
+  cohortFile:null,
+  mode:'patient', // 'patient' or 'text'
+  patientId:null,
+  queryText:'',
+  filterState:'',
+  results:[],
+  patients:[],
+  indexed:false,
+  loading:false,
+};
+
+async function showSimilarity(){
+  const m=document.getElementById('main');
+  m.innerHTML=`<div class="sim-view"><div style="display:flex;align-items:center;justify-content:center;padding:60px"><div class="loading"></div></div></div>`;
+
+  // Load available cohort files
+  const filesRes=await fetch('/api/files');
+  const filesData=await filesRes.json();
+  simState.cohortFiles=filesData.files;
+  simState.cohortFile=simState.cohortFile||filesData.files[0]?.name;
+
+  // Check if server already has this index loaded
+  if(simState.cohortFile){
+    try{
+      const statusRes=await fetch('/api/similarity/status/'+encodeURIComponent(simState.cohortFile));
+      const status=await statusRes.json();
+      if(status.indexed){
+        simState.indexed=true;
+        simState.numPatients=status.num_patients;
+        // Load sample patients from actual data
+        const pRes=await fetch('/api/similarity/patients/'+encodeURIComponent(simState.cohortFile)+'?limit=5');
+        const pData=await pRes.json();
+        simState.samplePatients=(pData.patients||[]).slice(0,5);
+      } else {
+        simState.indexed=false;
+        simState.samplePatients=[];
+      }
+    }catch(e){
+      simState.indexed=false;
+      simState.samplePatients=[];
+    }
+    simState.loading=false;
+  }
+
+  renderSimilarityView();
+}
+
+function renderSimilarityView(){
+  const {cohortFile,mode,results,indexed,loading,cohortFiles,patients}=simState;
+
+  let html=`<div class="sim-view">`;
+
+  // Cohort selector inline with controls
+  html+=`<div class="sim-cohort-select">
+    <select onchange="simSelectCohort(this.value)">
+      ${(cohortFiles||[]).map(f=>`<option value="${esc(f.name)}"${f.name===cohortFile?' selected':''}>${esc(f.name)}${f.num_rows?' ('+f.num_rows.toLocaleString()+' rows)':''}</option>`).join('')}
+    </select>
+    ${loading?'<div class="loading" style="width:12px;height:12px;border-width:1.5px"></div>':''}
+    ${!loading&&indexed?`<span style="font-size:11px;color:var(--muted)">${simState.numPatients?.toLocaleString()||''} patients indexed</span>`:''}
+  </div>`;
+
+  // Mode tabs
+  html+=`<div class="sim-controls">
+    <div class="sim-mode-tabs">
+      <div class="sim-mode-tab${mode==='patient'?' sel':''}" onclick="simSetMode('patient')">Find Similar Patient</div>
+      <div class="sim-mode-tab${mode==='text'?' sel':''}" onclick="simSetMode('text')">Semantic Search</div>
+    </div>
+  </div>`;
+
+  const sp=simState.samplePatients||[];
+
+  // Search input based on mode
+  if(mode==='patient'){
+    html+=`<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="sim-search-box">
+        <label>Patient ID</label>
+        <input type="number" id="sim-patient-input" placeholder="Enter patient number" value="${simState.patientId||''}" onkeydown="if(event.key==='Enter')simSearch()">
+      </div>
+      <div class="sim-filter">
+        <label>Filter by State</label>
+        <select id="sim-state-filter" onchange="simState.filterState=this.value">
+          <option value="">All States</option>
+          <option value="TX">Texas (TX)</option>
+          <option value="FL">Florida (FL)</option>
+          <option value="CA">California (CA)</option>
+          <option value="NY">New York (NY)</option>
+          <option value="PA">Pennsylvania (PA)</option>
+          <option value="IL">Illinois (IL)</option>
+          <option value="OH">Ohio (OH)</option>
+          <option value="GA">Georgia (GA)</option>
+          <option value="NC">North Carolina (NC)</option>
+          <option value="MI">Michigan (MI)</option>
+        </select>
+      </div>
+      <button class="sim-search-btn" onclick="simSearch()" ${loading?'disabled':''}>Search</button>
+    </div>`;
+    if(sp.length){
+      html+=`<div style="margin-top:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--border);margin-bottom:6px">Sample patients:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${sp.map(p=>`<button onclick="simSearchPatient(${p.id})" style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;color:var(--text);transition:all .1s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <span style="color:var(--accent);font-weight:600">#${p.id}</span>
+            ${p.state?`<span style="color:var(--muted);margin-left:4px">${p.state}</span>`:''}
+            ${p.diagnosis_preview?`<span style="color:var(--border);margin-left:4px;font-size:10px">${esc(p.diagnosis_preview)}</span>`:''}
+          </button>`).join('')}
+        </div>
+      </div>`;
+    }
+  } else {
+    html+=`<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="sim-search-box" style="flex:2">
+        <label>Clinical Description</label>
+        <input type="text" id="sim-text-input" placeholder="e.g. diabetes mellitus with hip joint complications" value="${esc(simState.queryText)}" onkeydown="if(event.key==='Enter')simSearch()">
+      </div>
+      <div class="sim-filter">
+        <label>Filter by State</label>
+        <select id="sim-state-filter" onchange="simState.filterState=this.value">
+          <option value="">All States</option>
+          <option value="TX">Texas (TX)</option>
+          <option value="FL">Florida (FL)</option>
+          <option value="CA">California (CA)</option>
+        </select>
+      </div>
+      <button class="sim-search-btn" onclick="simSearch()" ${loading?'disabled':''}>Search</button>
+    </div>`;
+    // Sample semantic searches
+    const sampleQueries=[
+      'diabetes with hip complications',
+      'osteomyelitis infection',
+      'joint replacement revision',
+      'Medicare hip fracture elderly',
+    ];
+    html+=`<div style="margin-top:12px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--border);margin-bottom:6px">Try a sample query:</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${sampleQueries.map(q=>`<button onclick="document.getElementById('sim-text-input').value='${q}';simState.queryText='${q}';simSearch()" style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;color:var(--muted);transition:all .1s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">${q}</button>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Results
+  if(results.length>0){
+    const lastQuery=simState.lastQuery||{};
+    html+=`<div class="sim-results-head">
+      <h3>Similar Patients</h3>
+      <span class="sim-meta"><span class="highlight">${results.length}</span> results in <span class="highlight">${simState.lastElapsed||0}ms</span></span>
+    </div>`;
+    html+=`<div class="sim-results">`;
+    const skipKeys=new Set(['_similarity','PATIENT_NUMBER','patient_number','PATIENT_STATE','patient_state','DIAGNOSIS_CODES','diagnosis_codes']);
+    results.forEach((r,i)=>{
+      const pid=r.PATIENT_NUMBER||r.patient_number||'—';
+      const state=r.PATIENT_STATE||r.patient_state||'';
+      const diag=r.DIAGNOSIS_CODES||r.diagnosis_codes||'';
+      const score=r._similarity;
+      const pct=Math.round(score*100);
+      const cardId='sim-card-'+i;
+      // Build detail fields from all keys
+      let detailHtml='';
+      for(const[k,v] of Object.entries(r)){
+        if(skipKeys.has(k))continue;
+        const label=k.replace(/_/g,' ');
+        const val=v!=null&&v!==''?String(v):'';
+        detailHtml+=`<div class="sim-detail-field"><div class="label">${esc(label)}</div><div class="value${val?'':' empty'}">${val?esc(val):'—'}</div></div>`;
+      }
+      html+=`<div class="sim-result-card" id="${cardId}" onclick="simToggleDetail('${cardId}')">
+        <div class="sim-result-header">
+          <div class="sim-result-rank">${i+1}</div>
+          <div class="sim-result-main">
+            <div class="sim-result-top">
+              <span class="sim-result-id">Patient #${pid}</span>
+              ${state?`<span class="sim-result-state">${esc(state)}</span>`:''}
+              <span class="sim-result-score"><span class="pct">${pct}%</span> similar</span>
+            </div>
+            <div class="sim-result-diag">${esc(diag)}</div>
+          </div>
+          <div class="sim-result-actions">
+            <button class="sim-result-btn primary" onclick="event.stopPropagation();simSearchPatient(${pid})">Find Similar</button>
+          </div>
+        </div>
+        <div class="sim-detail">
+          <div class="sim-detail-grid">${detailHtml}</div>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  } else if(loading){
+    html+=`<div class="sim-empty"><div class="loading"></div></div>`;
+  } else if(!indexed){
+    html+=`<div class="sim-empty">
+      <div class="sim-empty-text">Index not built for this cohort</div>
+      <div class="sim-empty-hint">Run <code style="background:var(--card);padding:2px 6px;border-radius:3px">make embeddings</code> first</div>
+    </div>`;
+  }
+
+  html+=`</div>`;
+  document.getElementById('main').innerHTML=html;
+}
+
+async function simSelectCohort(filename){
+  simState.cohortFile=filename;
+  simState.results=[];
+  simState.samplePatients=[];
+  simState.loading=true;
+  renderSimilarityView();
+  try{
+    const r=await fetch('/api/similarity/status/'+encodeURIComponent(filename));
+    const status=await r.json();
+    simState.indexed=status.indexed;
+    simState.numPatients=status.num_patients||0;
+    if(status.indexed){
+      const pRes=await fetch('/api/similarity/patients/'+encodeURIComponent(filename)+'?limit=5');
+      const pData=await pRes.json();
+      simState.samplePatients=(pData.patients||[]).slice(0,5);
+    }
+  }catch(e){
+    simState.indexed=false;
+  }
+  simState.loading=false;
+  renderSimilarityView();
+}
+
+async function simBuildIndex(){
+  simState.loading=true;
+  renderSimilarityView();
+  try{
+    const r=await fetch('/api/similarity/build/'+encodeURIComponent(simState.cohortFile),{method:'POST'});
+    if(!r.ok) throw new Error('Failed to build index');
+    const data=await r.json();
+    simState.indexed=true;
+    simState.numPatients=data.num_patients;
+    notify(`Index ready: ${data.num_patients.toLocaleString()} patients`);
+  }catch(e){
+    notify('Error: '+e.message);
+  }
+  simState.loading=false;
+  renderSimilarityView();
+}
+
+function simSetMode(mode){
+  simState.mode=mode;
+  renderSimilarityView();
+}
+
+async function simSearch(){
+  const {mode,cohortFile}=simState;
+
+  let patientId=null,queryText=null;
+  if(mode==='patient'){
+    const input=document.getElementById('sim-patient-input');
+    patientId=input?parseInt(input.value,10):null;
+    if(!patientId) patientId=simState.patientId||null;
+    if(!patientId){notify('Enter a patient ID');return;}
+    simState.patientId=patientId;
+  } else {
+    const input=document.getElementById('sim-text-input');
+    queryText=input?input.value.trim():null;
+    if(!queryText) queryText=simState.queryText||null;
+    if(!queryText){notify('Enter a clinical description');return;}
+    simState.queryText=queryText;
+  }
+
+  const stateFilter=document.getElementById('sim-state-filter')?.value||'';
+  const filters=stateFilter?{PATIENT_STATE:stateFilter}:null;
+
+  simState.loading=true;
+  renderSimilarityView();
+
+  try{
+    const body={
+      cohort_file:cohortFile,
+      patient_id:patientId,
+      query_text:queryText,
+      filters:filters,
+      limit:20,
+    };
+    const r=await fetch('/api/similarity/search',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body),
+    });
+    if(!r.ok){
+      const err=await r.json();
+      throw new Error(err.detail||'Search failed');
+    }
+    const data=await r.json();
+    simState.results=data.results;
+    simState.lastElapsed=data.elapsed_ms;
+    simState.lastQuery={patientId,queryText,filters};
+    simState.indexed=true;
+  }catch(e){
+    notify('Error: '+e.message);
+  }
+  simState.loading=false;
+  renderSimilarityView();
+}
+
+function simToggleDetail(cardId){
+  document.getElementById(cardId).classList.toggle('expanded');
+}
+
+function simSearchPatient(patientId){
+  simState.mode='patient';
+  simState.patientId=patientId;
+  simSearch();
+}
+
+loadFiles();
+</script>
+</body>
+</html>

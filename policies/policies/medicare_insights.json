@@ -1,0 +1,24 @@
+{
+  "policy_id": "medicare_insights",
+  "name": "Medicare Insights Platform",
+  "description": "Full access to Medicare 65+ population data - 3M+ patients",
+  "filter_type": "kohort",
+  "kohort_files": [
+    "atlas_bench_medicare_65plus.kohort"
+  ],
+  "universe_operation": "union",
+  "bitmap_cohort": null,
+  "predicate": null,
+  "masked_columns": ["PATIENT_YOB_DATE_UNCERTIFIED_TOP_CODED", "PATIENT_DECEASED_DATE"],
+  "mask_value": "***MASKED***",
+  "max_rows": null,
+  "universe_ids": ["medicare_universe"],
+  "user_roles": ["analyst", "researcher", "data_scientist", "actuary"],
+  "allowed_sources": ["kwazii", "carillon", "bellweather", "rowley", "nimbus"],
+  "source_bitset": 31,
+  "created_at": "2026-02-12T14:00:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 10,
+  "customer_tier": "enterprise"
+}

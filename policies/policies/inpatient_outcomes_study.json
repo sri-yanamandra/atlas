@@ -1,0 +1,24 @@
+{
+  "policy_id": "inpatient_outcomes_study",
+  "name": "2024 Inpatient Outcomes Study",
+  "description": "Hospital inpatient admissions data for 2024 - 1M+ hospitalizations",
+  "filter_type": "kohort",
+  "kohort_files": [
+    "atlas_bench_2024_inpatient.kohort"
+  ],
+  "universe_operation": "union",
+  "bitmap_cohort": null,
+  "predicate": null,
+  "masked_columns": ["PATIENT_YOB_DATE_UNCERTIFIED_TOP_CODED", "PATIENT_DECEASED_DATE", "ADMITTING_PHYSICIAN_NPI"],
+  "mask_value": "***MASKED***",
+  "max_rows": null,
+  "universe_ids": ["inpatient_universe"],
+  "user_roles": ["analyst", "researcher", "hospitalist", "data_scientist"],
+  "allowed_sources": ["kwazii", "carillon", "bellweather", "rowley", "nimbus"],
+  "source_bitset": 31,
+  "created_at": "2026-02-12T16:00:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 9,
+  "customer_tier": "enterprise"
+}

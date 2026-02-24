@@ -1,0 +1,24 @@
+{
+  "policy_id": "pediatric_medicaid_access",
+  "name": "Pediatric Medicaid Research Program",
+  "description": "Medicaid pediatric population data - 700K+ children",
+  "filter_type": "kohort",
+  "kohort_files": [
+    "atlas_bench_medicaid_pediatric.kohort"
+  ],
+  "universe_operation": "union",
+  "bitmap_cohort": null,
+  "predicate": null,
+  "masked_columns": ["PATIENT_YOB_DATE_UNCERTIFIED_TOP_CODED", "PATIENT_GUARDIAN_NAME"],
+  "mask_value": "***MASKED***",
+  "max_rows": null,
+  "universe_ids": ["pediatric_medicaid_universe"],
+  "user_roles": ["analyst", "researcher", "pediatrician", "data_scientist"],
+  "allowed_sources": ["kwazii", "carillon", "bellweather"],
+  "source_bitset": 7,
+  "created_at": "2026-02-12T16:30:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 7,
+  "customer_tier": "premium"
+}

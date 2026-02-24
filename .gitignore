@@ -1,0 +1,42 @@
+# Data files (too large for git)
+*.kohort
+*.cohort
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.env
+*.egg-info/
+dist/
+build/
+
+# Rust
+target/
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cache and temp
+.vector_cache/
+.lance_index/
+.kohort-catalog.json
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+audit_logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/

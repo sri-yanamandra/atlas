@@ -1,0 +1,23 @@
+{
+  "policy_id": "lonestar_health",
+  "name": "Lonestar Health Systems",
+  "description": "Texas-based hospital network - access to Texas patients only",
+  "filter_type": "kohort",
+  "kohort_files": ["atlas_tx.kohort"],
+  "universe_operation": "union",
+  "bitmap_cohort": "tx",
+  "predicate": null,
+  "masked_columns": ["PATIENT_YOB_DATE_UNCERTIFIED_TOP_CODED"],
+  "mask_value": "***MASKED***",
+  "max_rows": null,
+  "universe_ids": ["tx_universe", "all_patients"],
+  "user_roles": ["analyst", "researcher"],
+  "allowed_sources": ["kwazii", "rowley", "wallabega"],
+  "source_bitset": 32801,
+  "created_at": "2026-02-12T12:00:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 10,
+  "customer_tier": "enterprise",
+  "patient_count": 246
+}

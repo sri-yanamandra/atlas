@@ -1,0 +1,25 @@
+{
+  "policy_id": "texas_womens_health",
+  "name": "Texas Women's Health Network",
+  "description": "Regional network - access to female patients in Texas only (intersection)",
+  "filter_type": "kohort",
+  "kohort_files": [
+    "atlas_tx.kohort",
+    "atlas_f.kohort"
+  ],
+  "universe_operation": "intersection",
+  "bitmap_cohort": null,
+  "predicate": null,
+  "masked_columns": null,
+  "mask_value": "***MASKED***",
+  "max_rows": 5000,
+  "universe_ids": ["tx_universe", "f_universe"],
+  "user_roles": ["analyst", "clinician"],
+  "allowed_sources": ["kwazii", "carillon", "bellweather"],
+  "source_bitset": 7,
+  "created_at": "2026-02-12T14:00:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 12,
+  "customer_tier": "regional"
+}

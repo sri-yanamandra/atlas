@@ -1,0 +1,26 @@
+{
+  "policy_id": "nationwide_analytics",
+  "name": "Nationwide Health Analytics",
+  "description": "Enterprise analytics firm - access to Texas, female, and cardiology cohorts",
+  "filter_type": "kohort",
+  "kohort_files": [
+    "atlas_tx.kohort",
+    "atlas_f.kohort",
+    "atlas_bench_cardiology_procs.kohort"
+  ],
+  "universe_operation": "union",
+  "bitmap_cohort": null,
+  "predicate": null,
+  "masked_columns": ["PATIENT_YOB_DATE_UNCERTIFIED_TOP_CODED"],
+  "mask_value": "***MASKED***",
+  "max_rows": null,
+  "universe_ids": ["all_patients", "tx_universe", "f_universe"],
+  "user_roles": ["analyst", "researcher", "data_scientist"],
+  "allowed_sources": ["kwazii", "carillon", "bellweather", "rowley", "nimbus"],
+  "source_bitset": 103,
+  "created_at": "2026-02-12T14:00:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 5,
+  "customer_tier": "enterprise"
+}

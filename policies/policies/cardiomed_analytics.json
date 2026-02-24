@@ -1,0 +1,23 @@
+{
+  "policy_id": "cardiomed_analytics",
+  "name": "CardioMed Analytics",
+  "description": "Cardiology research firm - access to cardiology procedure patients",
+  "filter_type": "kohort",
+  "kohort_files": ["atlas_bench_cardiology_procs.kohort"],
+  "universe_operation": "union",
+  "bitmap_cohort": "bench_cardiology_procs",
+  "predicate": null,
+  "masked_columns": ["PATIENT_STATE"],
+  "mask_value": "***MASKED***",
+  "max_rows": 10000,
+  "universe_ids": ["all_patients"],
+  "user_roles": ["researcher"],
+  "allowed_sources": ["rowley", "bellweather"],
+  "source_bitset": 36,
+  "created_at": "2026-02-12T12:00:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 20,
+  "customer_tier": "research",
+  "patient_count": 59999
+}

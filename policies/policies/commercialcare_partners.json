@@ -1,0 +1,23 @@
+{
+  "policy_id": "commercialcare_partners",
+  "name": "CommercialCare Partners",
+  "description": "Commercial payer - access to commercial female members",
+  "filter_type": "kohort",
+  "kohort_files": ["atlas_bench_commercial_female.kohort"],
+  "universe_operation": "union",
+  "bitmap_cohort": "bench_commercial_female",
+  "predicate": null,
+  "masked_columns": null,
+  "mask_value": "***MASKED***",
+  "max_rows": null,
+  "universe_ids": ["all_patients"],
+  "user_roles": ["analyst", "admin"],
+  "allowed_sources": ["kwazii", "lhcg_claims", "nimbus"],
+  "source_bitset": 81,
+  "created_at": "2026-02-12T12:00:00.000000",
+  "created_by": "admin",
+  "enabled": true,
+  "priority": 5,
+  "customer_tier": "premium",
+  "patient_count": 150000
+}
