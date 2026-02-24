@@ -84,6 +84,18 @@ SDK_USE_CASES = [
         "description": "Compressed size on disk",
         "unit": "MB",
     },
+    {
+        "id": "sql_group_by",
+        "name": "SQL GROUP BY",
+        "description": "CohortCatalog.query(\"SELECT col, COUNT(*) GROUP BY\") — aggregation",
+        "unit": "ms",
+    },
+    {
+        "id": "sql_order_by",
+        "name": "SQL ORDER BY",
+        "description": "CohortCatalog.query(\"SELECT * ORDER BY LIMIT\") — sorting",
+        "unit": "ms",
+    },
 ]
 
 
@@ -201,6 +213,24 @@ def _run_sdk_benchmarks(
 
                     ms = _time_it(do_filter, iterations=3, warmup=1)
                     sdk["grid"][codec]["sql_filter"] = round(ms, 1)
+
+                    # SQL GROUP BY — aggregate by first column
+                    def do_group_by(tbl=table_name, col=qualified_col):
+                        return catalog.query(
+                            f'SELECT {col}, COUNT(*) as cnt FROM "{tbl}" GROUP BY {col} LIMIT 100'
+                        )
+
+                    ms = _time_it(do_group_by, iterations=3, warmup=1)
+                    sdk["grid"][codec]["sql_group_by"] = round(ms, 1)
+
+                    # SQL ORDER BY — sort and limit
+                    def do_order_by(tbl=table_name, col=qualified_col):
+                        return catalog.query(
+                            f'SELECT * FROM "{tbl}" ORDER BY {col} LIMIT 100'
+                        )
+
+                    ms = _time_it(do_order_by, iterations=3, warmup=1)
+                    sdk["grid"][codec]["sql_order_by"] = round(ms, 1)
 
     # Compute winners (lowest value wins for each use case)
     for uc in SDK_USE_CASES:
